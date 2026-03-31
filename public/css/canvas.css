@@ -1,0 +1,10 @@
+/* ── WebGL canvas ────────────────────────────────────────────────── */
+#c {
+  display: block;
+  aspect-ratio: 2 / 1;
+  width: min(calc(100vw - 40px),
+      calc((100vh - var(--ctrl-h) - 60px) * 2));
+  border-radius: 4px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}

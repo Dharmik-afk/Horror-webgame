@@ -1,0 +1,851 @@
+/* ── Settings / pause overlay ────────────────────────────────────── */
+#cfg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  perspective: 40vw;
+  background: rgba(4, 4, 18, 0.25);
+  backdrop-filter: blur(22px) saturate(0.68);
+  -webkit-backdrop-filter: blur(22px) saturate(0.68);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+#cfg-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* ── Settings card ───────────────────────────────────────────────── */
+#cfg-panel {
+  --x: 0deg;
+  --y: 0deg;
+  --_max: 6deg;
+  --theme: hsl(255 53% 65%);
+  --theme-glow: hsl(255 53% 55% / 45%);
+  --panel-w: clamp(520px, 90vw, 780px);
+  --panel-h: clamp(360px, 72vh, 560px);
+  --nav-w: 148px;
+
+  position: relative;
+  width: var(--panel-w);
+  height: var(--panel-h);
+  background: rgba(6, 6, 18, 0.97);
+  border: 1px solid rgba(123, 140, 255, 0.22);
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 1px rgba(123, 140, 255, 0.06),
+    0 32px 80px rgba(0, 0, 0, 0.80),
+    0 8px 24px rgba(0, 0, 0, 0.60);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  transform-style: preserve-3d;
+  transform:
+    scale(0.92) translateY(16px) rotateX(clamp(calc(var(--_max) * -1), var(--x), var(--_max))) rotateY(clamp(calc(var(--_max) * -1), var(--y), var(--_max)));
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#cfg-overlay.open #cfg-panel {
+  transform:
+    scale(1) translateY(0) rotateX(clamp(calc(var(--_max) * -1), var(--x), var(--_max))) rotateY(clamp(calc(var(--_max) * -1), var(--y), var(--_max)));
+}
+
+#cfg-overlay.is-open #cfg-panel {
+  transition: transform 0.08s ease;
+}
+
+/* Touch: smooth tilt transitions, override the 0.08s snap */
+@media (hover: none) and (pointer: coarse) {
+
+  #cfg-panel,
+  #cfg-overlay.open #cfg-panel,
+  #cfg-overlay.is-open #cfg-panel {
+    transition: transform 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+}
+
+/* ── Panel header ────────────────────────────────────────────────── */
+.cfg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 13px;
+  border-bottom: 1px solid rgba(123, 140, 255, 0.10);
+  background: rgba(10, 10, 26, 0.60);
+  flex-shrink: 0;
+}
+
+.cfg-title-text {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: rgba(168, 180, 255, 0.65);
+}
+
+.cfg-close-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(123, 140, 255, 0.07);
+  border: 1px solid rgba(123, 140, 255, 0.16);
+  border-radius: 7px;
+  color: rgba(168, 180, 255, 0.55);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.cfg-close-btn:hover {
+  background: rgba(123, 140, 255, 0.18);
+  border-color: rgba(123, 140, 255, 0.45);
+  color: #a8b4ff;
+}
+
+/* ── Two-column body ─────────────────────────────────────────────── */
+.cfg-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Left navigation panel ───────────────────────────────────────── */
+.cfg-nav {
+  width: var(--nav-w);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 10px 14px;
+  background: rgba(8, 8, 22, 0.55);
+  border-right: 1px solid rgba(123, 140, 255, 0.09);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.cfg-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.cfg-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(148, 162, 220, 0.55);
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 0.80rem;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.14s, color 0.14s, box-shadow 0.14s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cfg-nav-item svg {
+  flex-shrink: 0;
+  opacity: 0.65;
+  transition: opacity 0.14s;
+}
+
+.cfg-nav-item:hover {
+  background: rgba(123, 140, 255, 0.08);
+  color: rgba(192, 200, 255, 0.85);
+}
+
+.cfg-nav-item:hover svg {
+  opacity: 0.9;
+}
+
+.cfg-nav-item.active {
+  background: rgba(123, 140, 255, 0.14);
+  color: #c0c8ff;
+  box-shadow: inset 3px 0 0 #7b8cff;
+}
+
+.cfg-nav-item.active svg {
+  opacity: 1;
+}
+
+.cfg-nav-spacer {
+  flex: 1;
+  min-height: 16px;
+}
+
+/* ── Right scrollable content ────────────────────────────────────── */
+.cfg-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 18px 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(123, 140, 255, 0.22) transparent;
+}
+
+.cfg-content::-webkit-scrollbar {
+  width: 5px;
+}
+
+.cfg-content::-webkit-scrollbar-thumb {
+  background: rgba(123, 140, 255, 0.20);
+  border-radius: 3px;
+}
+
+.cfg-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── Section ─────────────────────────────────────────────────────── */
+.cfg-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 20px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(123, 140, 255, 0.07);
+  /* Prevent the heading landing flush against the scroll container
+     edge when navigated via scrollIntoView — 12px of breathing room. */
+  scroll-margin-top: 12px;
+}
+
+.cfg-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.cfg-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(123, 140, 255, 0.55);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(123, 140, 255, 0.10);
+}
+
+.cfg-section-heading svg {
+  opacity: 0.65;
+  flex-shrink: 0;
+}
+
+/* Legacy — res-dropdown label */
+.cfg-section-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: rgba(123, 140, 255, 0.50);
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(123, 140, 255, 0.10);
+  margin-bottom: 2px;
+}
+
+/* ── 3D row base ─────────────────────────────────────────────────── */
+.cfg-3d-row {
+  position: relative;
+  transform-style: preserve-3d;
+  transform: translateZ(2px);
+  transition: transform 0.20s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cfg-3d-row:hover {
+    transform: translateZ(8px);
+  }
+}
+
+/* On touch, rows press in on tap instead of popping out */
+@media (hover: none) and (pointer: coarse) {
+  .cfg-3d-row:active {
+    transform: translateZ(-6px);
+  }
+
+  .cfg-3d-row:active::after {
+    opacity: 1;
+    transform: translateZ(-6px);
+  }
+
+  .cfg-3d-row:active::before {
+    opacity: 1;
+  }
+}
+
+.cfg-3d-row::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(123, 140, 255, 0.28);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateZ(4px);
+  transition: opacity 0.20s ease, transform 0.20s ease;
+}
+
+.cfg-3d-row:hover::after {
+  opacity: 1;
+  transform: translateZ(8px);
+}
+
+.cfg-3d-row::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(123, 140, 255, 0.08);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateZ(-4px);
+  box-shadow: 0 0 12px rgba(123, 140, 255, 0.14), inset 0 0 8px rgba(123, 140, 255, 0.06);
+  transition: opacity 0.20s ease;
+}
+
+.cfg-3d-row:hover::before {
+  opacity: 1;
+}
+
+/* ── Toggle row ─���────────────────────────────────────────────────── */
+.cfg-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 13px;
+  background: linear-gradient(145deg, #1b1b36, #111126);
+  border: 1px solid #353566;
+  border-radius: 10px;
+  box-shadow: 0 3px 0 #080818, 0 5px 10px #00000045, inset 0 1px 0 #ffffff0d;
+}
+
+.cfg-toggle-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #c0c8ff;
+  letter-spacing: 0.3px;
+  user-select: none;
+}
+
+.cfg-toggle-hint {
+  font-size: 0.58rem;
+  color: #42426a;
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+  user-select: none;
+}
+
+/* Pill toggle */
+.cfg-toggle {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.cfg-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.cfg-toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 11px;
+  background: #181830;
+  border: 1px solid #353566;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+
+.cfg-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #505080;
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), background 0.18s;
+}
+
+.cfg-toggle input:checked+.cfg-toggle-track {
+  background: #24244a;
+  border-color: #7b8cff;
+  box-shadow: 0 0 10px #7b8cff38;
+}
+
+.cfg-toggle input:checked+.cfg-toggle-track::after {
+  transform: translateX(16px);
+  background: #a0acff;
+}
+
+/* ── Slider row ──────────────────────────────────────────────────── */
+.cfg-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 13px;
+  background: linear-gradient(145deg, #1b1b36, #111126);
+  border: 1px solid #353566;
+  border-radius: 10px;
+  box-shadow: 0 3px 0 #080818, 0 5px 10px #00000045, inset 0 1px 0 #ffffff0d;
+}
+
+.cfg-slider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cfg-slider-value {
+  font-size: 0.80rem;
+  font-weight: 700;
+  color: #7b8cff;
+  min-width: 28px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cfg-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: #2a2a50;
+  outline: none;
+  cursor: pointer;
+  position: relative;
+}
+
+.cfg-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #a0acff;
+  border: 2px solid #7b8cff;
+  box-shadow: 0 0 8px #7b8cff66;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.cfg-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 14px #7b8cffaa;
+}
+
+.cfg-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #a0acff;
+  border: 2px solid #7b8cff;
+  box-shadow: 0 0 8px #7b8cff66;
+  cursor: pointer;
+}
+
+/* ── Keybind group ───────────────────────────────────────────────── */
+.cfg-keybind-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.cfg-keybind-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 13px;
+  background: linear-gradient(145deg, #181830, #0f0f22);
+  border: 1px solid #2a2a50;
+  border-radius: 8px;
+}
+
+.cfg-key {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #a0acff;
+  background: rgba(123, 140, 255, 0.10);
+  border: 1px solid rgba(123, 140, 255, 0.28);
+  border-bottom: 2px solid rgba(80, 96, 200, 0.55);
+  border-radius: 5px;
+  padding: 3px 8px;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* ── Resolution custom dropdown ────────────────────────���─────────── */
+.res-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.res-dropdown-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 13px;
+  background: linear-gradient(145deg, #1b1b36, #111126);
+  border: 1px solid #353566;
+  border-radius: 10px;
+  box-shadow: 0 3px 0 #080818, 0 5px 10px #00000045, inset 0 1px 0 #ffffff0d;
+  color: #c0c8ff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.res-dropdown-btn:hover,
+.res-dropdown.is-open .res-dropdown-btn {
+  border-color: #7b8cff;
+  box-shadow: 0 3px 0 #080818, 0 5px 10px #00000045, inset 0 1px 0 #ffffff0d, 0 0 0 2px #7b8cff28;
+  background: linear-gradient(145deg, #20204a, #141430);
+}
+
+.res-dropdown-chevron {
+  flex-shrink: 0;
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.res-dropdown.is-open .res-dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+.res-dropdown-list {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  background: rgba(8, 8, 22, 0.98);
+  border: 1px solid rgba(123, 140, 255, 0.22);
+  border-radius: 10px;
+  padding: 5px;
+  box-shadow: 0 8px 28px #00000070;
+  overflow: hidden;
+}
+
+.res-dropdown-list.open {
+  display: flex;
+}
+
+.res-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.1s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.res-dropdown-item:hover {
+  background: rgba(123, 140, 255, 0.09);
+}
+
+.res-dropdown-item.selected {
+  background: rgba(123, 140, 255, 0.15);
+}
+
+.res-dropdown-item.selected .res-item-label {
+  color: #a8b4ff;
+}
+
+.res-item-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #c0c8ff;
+  min-width: 38px;
+}
+
+.res-item-sub {
+  font-size: 0.72rem;
+  color: #42426a;
+  letter-spacing: 0.3px;
+  flex: 1;
+}
+
+.res-item-badge {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #7b8cff;
+  background: rgba(123, 140, 255, 0.13);
+  border: 1px solid rgba(123, 140, 255, 0.28);
+  border-radius: 4px;
+  padding: 2px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── 3D action button — Resume / Back ────────────────────────────── */
+.cfg-3d-action {
+  --distance: 1px;
+
+  position: relative;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  background-color: hsl(255 22% 12%);
+  color: hsl(255 80% 90%);
+  text-shadow: 0 1px 1px hsl(255 53% 8% / 60%);
+  font-family: inherit;
+  font-size: clamp(0.78rem, 2.5vmin, 0.95rem);
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  padding-block: 0.85ch;
+  padding-inline: 2ch;
+  border-radius: 5px 16px;
+  text-align: center;
+  flex-shrink: 0;
+
+  transform-style: preserve-3d;
+  transform: translateZ(var(--distance));
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.cfg-3d-action::before,
+.cfg-3d-action::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--theme, hsl(255 53% 65%));
+  border-radius: 5px 16px;
+  opacity: 0.75;
+  pointer-events: none;
+  transition: transform 0.15s ease;
+}
+
+.cfg-3d-action::after {
+  transform: translateZ(calc(var(--distance) / 3));
+}
+
+.cfg-3d-action::before {
+  transform: translateZ(calc(var(--distance) / 3 * -1));
+  border-width: 2px;
+  box-shadow:
+    0 0 20px var(--theme-glow, hsl(255 53% 55% / 45%)),
+    inset 0 0 16px var(--theme-glow, hsl(255 53% 55% / 45%));
+}
+
+.cfg-3d-action:is(:hover, :focus-visible):not(:active) {
+  --distance: 12px;
+  background-color: hsl(255 22% 18%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cfg-3d-action:is(:hover, :focus-visible):not(:active) {
+    --distance: 2.5vmax;
+    transition: transform 0.4s cubic-bezier(.5, 1.75, .75, 1.25), background-color 0.2s ease;
+  }
+
+  .cfg-3d-action:is(:hover, :focus-visible):not(:active)::after {
+    transition: transform 0.5s cubic-bezier(.5, 1.75, .75, 1.25);
+  }
+
+  .cfg-3d-action:is(:hover, :focus-visible):not(:active)::before {
+    transition: transform 0.3s cubic-bezier(.5, 1.75, .75, 1.25);
+  }
+}
+
+.cfg-3d-action:focus-visible {
+  outline: 2px solid hsl(255 53% 65%);
+  outline-offset: 3px;
+}
+
+/* ── Dummy / unimplemented feature label ─────────────────────────── */
+.cfg-dummy {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: rgba(123, 140, 255, 0.38);
+  text-transform: none;
+  user-select: none;
+}
+
+/* ── Dependency-locked row (managed by SettingsManager in ui.js) ─── */
+/* Applied when a setting's `requires` parent is currently OFF.       */
+/* The row is dimmed and non-interactive; the checkbox is also        */
+/* disabled in JS — this rule provides the visual counterpart.        */
+.cfg-row-disabled {
+  opacity: 0.38;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── Dependency-hidden row ───────────────────────────────────────── */
+/* Applied when whenAbsent:'hide' and the parent is OFF, or when any  */
+/* ancestor in the requires chain resolves to 'hide'.  Removes the    */
+/* row from layout entirely — the user should not see it at all.      */
+.cfg-row-hidden {
+  display: none;
+}
+
+/* ── Mobile / touch: invert depth so taps press the button IN ─────── */
+@media (hover: none) and (pointer: coarse) {
+  .cfg-3d-action:active {
+    --distance: -10px;
+    background-color: hsl(255 22% 8%);
+    transition: transform 0.08s ease, background-color 0.08s ease;
+  }
+
+  .cfg-3d-action:active::after {
+    transform: translateZ(calc(var(--distance) / 3));
+    transition: transform 0.08s ease;
+  }
+
+  .cfg-3d-action:active::before {
+    transform: translateZ(calc(var(--distance) / 3 * -1));
+    transition: transform 0.08s ease;
+  }
+
+  /* Suppress hover-forward on touch */
+  .cfg-3d-action:is(:hover, :focus-visible):not(:active) {
+    --distance: 1px;
+  }
+}
+
+/* ── Responsive: narrow screens (fullscreen or desktop) ─────────── */
+@media (max-width: 560px) {
+  #cfg-panel {
+    --panel-w: 96vw;
+    --panel-h: 85vh;
+    --nav-w: 120px;
+  }
+
+  .cfg-nav-item {
+    gap: 6px;
+    padding: 8px 9px;
+    font-size: 0.74rem;
+  }
+}
+
+/* ── Mobile portrait / non-fullscreen: stacked layout ───────────── */
+/* Nav becomes a horizontal scrollable strip at the top.             */
+/* Content scrolls vertically below it.                              */
+/* body.is-fullscreen keeps the default side-nav layout.             */
+@media (max-width: 560px) {
+  body:not(.is-fullscreen) #cfg-overlay {
+    perspective: 120vw;
+  }
+
+  body:not(.is-fullscreen) #cfg-panel {
+    --panel-w: 96vw;
+    --panel-h: 88vh;
+    /* Reduce tilt range from 6deg to 2deg */
+    --_max: 2deg;
+  }
+
+  body:not(.is-fullscreen) .cfg-body {
+    flex-direction: column;
+  }
+
+  /* Horizontal scrolling nav strip */
+  body:not(.is-fullscreen) .cfg-nav {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid rgba(123, 140, 255, 0.09);
+    flex-shrink: 0;
+    scrollbar-width: none;
+  }
+
+  body:not(.is-fullscreen) .cfg-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Compact vertical icon+label pill buttons */
+  body:not(.is-fullscreen) .cfg-nav-item {
+    flex-shrink: 0;
+    flex-grow: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 5px 8px;
+    font-size: 0.57rem;
+    white-space: nowrap;
+    border-radius: 8px;
+    width: auto;
+    min-width: 0;
+    /* Override the left-bar active indicator with a bottom bar */
+    box-shadow: none;
+  }
+
+  body:not(.is-fullscreen) .cfg-nav-item svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  body:not(.is-fullscreen) .cfg-nav-item.active {
+    box-shadow: inset 0 -3px 0 #7b8cff;
+  }
+
+  /* Collapse spacer — no vertical space to push Resume in horizontal row */
+  body:not(.is-fullscreen) .cfg-nav-spacer {
+    display: none;
+  }
+
+  /* Resume button: inline at end of horizontal row */
+  body:not(.is-fullscreen) .cfg-3d-action {
+    flex-shrink: 0;
+    width: auto;
+    padding-block: 0.6ch;
+    padding-inline: 1.2ch;
+    font-size: 0.66rem;
+    margin-left: 6px;
+  }
+
+  /* Content pane fills remaining height */
+  body:not(.is-fullscreen) .cfg-content {
+    flex: 1;
+    min-height: 0;
+    padding: 14px 14px 18px;
+  }
+}

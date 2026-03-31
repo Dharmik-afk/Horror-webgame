@@ -1,0 +1,117 @@
+/* ── WASD pad ─────────────────────────────────────────────────────── */
+.wasd-pad {
+  display: grid;
+  grid-template-areas:
+    ".  w  ."
+    "a  s  d";
+  grid-template-columns: repeat(3, var(--key-size));
+  grid-template-rows: repeat(2, var(--key-size));
+  gap: var(--key-gap);
+  flex-shrink: 0;
+  /* Default (non-fullscreen): horizontally centred below the canvas.
+     body is a flex column with align-items:center — margin:auto
+     makes the intent explicit and prevents drift if body alignment
+     ever changes. */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.key {
+  position: relative;
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: linear-gradient(145deg, #1e1e3a, #13132a);
+  border: 1px solid #3a3a6a;
+  box-shadow:
+    0 6px 0 #0a0a18,
+    0 8px 16px #00000060,
+    inset 0 1px 0 #ffffff12;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+}
+
+.key[data-key="w"] {
+  grid-area: w;
+}
+
+.key[data-key="a"] {
+  grid-area: a;
+}
+
+.key[data-key="s"] {
+  grid-area: s;
+}
+
+.key[data-key="d"] {
+  grid-area: d;
+}
+
+.key .label {
+  font-size: clamp(1rem, min(3.5vw, 3.5vh), 1.7rem);
+  font-weight: 700;
+  color: #c0c8ff;
+  text-shadow: 0 0 8px #7b8cff66;
+  transition: color 0.08s;
+}
+
+.key .hint {
+  font-size: clamp(0.38rem, min(1vw, 1vh), 0.58rem);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #5a5a88;
+}
+
+.key .arrow {
+  position: absolute;
+  top: 7px;
+  font-size: clamp(0.7rem, min(2vw, 2vh), 1.3rem);
+  opacity: 0.22;
+  color: #fff;
+}
+
+.key.pressed {
+  transform: translateY(4px);
+  box-shadow:
+    0 2px 0 #0a0a18,
+    0 4px 8px #00000060,
+    inset 0 2px 6px #00000040,
+    0 0 20px #7b8cff66;
+  background: linear-gradient(145deg, #2a2a55, #1a1a3a);
+  border-color: #7b8cff;
+}
+
+.key.pressed .label {
+  color: #fff;
+  text-shadow: 0 0 12px #7b8cffcc;
+}
+
+.key.pressed .hint {
+  color: #9090cc;
+}
+
+@keyframes ripple {
+  from {
+    opacity: 0.6;
+    transform: scale(0.8);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+.ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  border: 2px solid #7b8cff;
+  animation: ripple 0.4s ease-out forwards;
+  pointer-events: none;
+}

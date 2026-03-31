@@ -1,0 +1,218 @@
+/* ── Start menu overlay ──────────────────────────────────────────── */
+#start-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Perspective parent — establishes the 3D space the menu floats in */
+  perspective: 40vw;
+  background: linear-gradient(160deg, #07071a 0%, #0d0d2b 50%, #080818 100%);
+}
+
+#start-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5vh;
+}
+
+.start-title {
+  font-size: clamp(2rem, 8vw, 3.8rem);
+  font-weight: 900;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #c0c8ff;
+  text-shadow:
+    0 0 40px rgba(123, 140, 255, 0.45),
+    0 0 80px rgba(123, 140, 255, 0.18);
+  user-select: none;
+}
+
+/* ── 3D button list ──────────────────────────────────────────────── */
+.threeD-button-set {
+  /* ── Theme tokens ─────────────────────────── */
+  --theme: hsl(255 53% 65%);
+  --theme-glow: hsl(255 53% 55% / 55%);
+  --_btn-bg: hsl(255 22% 11%);
+  --_btn-bg-hover: hsl(255 22% 17%);
+  --_btn-text: hsl(255 80% 90%);
+  --_btn-text-shadow: hsl(255 53% 8% / 60%);
+
+  /* ── 3D control ───────────────────────────── */
+  --distance: 1px;
+  --_max-rotateX: 14deg;
+  --_max-rotateY: 14deg;
+  --x: 0deg;
+  --y: 0deg;
+  --_bounce: cubic-bezier(.5, 1.75, .75, 1.25);
+
+  /* ── Layout ───────────────────────────────── */
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2.5vh;
+
+  /* ── 3D card transform ────────────────────── */
+  transform-style: preserve-3d;
+  transform:
+    rotateX(clamp(calc(var(--_max-rotateX) * -1), var(--x), var(--_max-rotateX))) rotateY(clamp(calc(var(--_max-rotateY) * -1), var(--y), var(--_max-rotateY)));
+}
+
+/* Idle float animation — only when motion is acceptable */
+@media (prefers-reduced-motion: no-preference) {
+  .threeD-button-set {
+    will-change: transform;
+    transition: transform 0.1s ease;
+    animation: start-menu-float 5s ease-in-out infinite;
+  }
+}
+
+/* Touch: smooth tilt, override the 0.1s snap */
+@media (prefers-reduced-motion: no-preference) and (hover: none) and (pointer: coarse) {
+  .threeD-button-set {
+    transition: transform 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+}
+
+@keyframes start-menu-float {
+
+  0%,
+  100% {
+    transform: rotateY(0deg) rotateX(0deg);
+  }
+
+  50% {
+    transform: rotateY(15deg) rotateX(-6deg);
+  }
+}
+
+/* List items — inline-flex to carry the 3D context down */
+.threeD-button-set>li {
+  display: inline-flex;
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+.threeD-button-set button {
+  /* Reset */
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  /* Visuals */
+  background-color: var(--_btn-bg);
+  color: var(--_btn-text);
+  text-shadow: 0 1px 1px var(--_btn-text-shadow);
+  font-family: inherit;
+  font-size: clamp(0.9rem, 4vmin, 1.35rem);
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  padding-block: 0.75ch;
+  padding-inline: 2.5ch;
+  border-radius: 5px 18px;
+
+  /* 3D position — default depth 1px, expands on hover */
+  transform: translateZ(var(--distance));
+  transform-style: preserve-3d;
+
+  /* Transition for non-motion-preference users: still smooth, no bounce */
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+/* Forward and backward border planes */
+.threeD-button-set button::before,
+.threeD-button-set button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--theme);
+  border-radius: 5px 18px;
+  opacity: 0.75;
+  transition: transform 0.15s ease;
+}
+
+/* Forward plane — slightly in front */
+.threeD-button-set button::after {
+  transform: translateZ(calc(var(--distance) / 3));
+}
+
+/* Backward plane — behind, carries the glow */
+.threeD-button-set button::before {
+  transform: translateZ(calc(var(--distance) / 3 * -1));
+  border-width: 2px;
+  box-shadow:
+    0 0 20px var(--theme-glow),
+    inset 0 0 20px var(--theme-glow);
+}
+
+/* Hover / focus-visible: push all three planes apart */
+.threeD-button-set button:is(:hover, :focus-visible):not(:active) {
+  --distance: 15px;
+  background-color: var(--_btn-bg-hover);
+}
+
+/* With motion OK, use bounce timing and per-plane stagger */
+@media (prefers-reduced-motion: no-preference) {
+  .threeD-button-set button:is(:hover, :focus-visible):not(:active) {
+    --distance: 3vmax;
+    transition:
+      transform 0.4s var(--_bounce),
+      background-color 0.2s ease;
+  }
+
+  .threeD-button-set button:is(:hover, :focus-visible):not(:active)::after {
+    transition: transform 0.5s var(--_bounce);
+  }
+
+  .threeD-button-set button:is(:hover, :focus-visible):not(:active)::before {
+    transition: transform 0.3s var(--_bounce);
+  }
+}
+
+/* Focus ring — visible without outline:none for a11y */
+.threeD-button-set button:focus-visible {
+  outline: 2px solid var(--theme);
+  outline-offset: 3px;
+}
+
+/* ── Mobile / touch: invert depth so taps press the button IN ─────── */
+/* On coarse-pointer devices the "pop forward" illusion reads wrong.   */
+/* Flip --distance negative so the button recedes on press instead.    */
+@media (hover: none) and (pointer: coarse) {
+  .threeD-button-set button {
+    transform: translateZ(var(--distance));
+  }
+
+  .threeD-button-set button:active {
+    --distance: -12px;
+    background-color: var(--_btn-bg-hover);
+    transition: transform 0.08s ease, background-color 0.08s ease;
+  }
+
+  /* Planes mirror the inversion */
+  .threeD-button-set button:active::after {
+    transform: translateZ(calc(var(--distance) / 3));
+    transition: transform 0.08s ease;
+  }
+
+  .threeD-button-set button:active::before {
+    transform: translateZ(calc(var(--distance) / 3 * -1));
+    transition: transform 0.08s ease;
+  }
+
+  /* Suppress the hover-forward states entirely on touch */
+  .threeD-button-set button:is(:hover, :focus-visible):not(:active) {
+    --distance: 1px;
+  }
+}

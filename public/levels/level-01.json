@@ -1,0 +1,130 @@
+{
+  "meta": {
+    "name": "Level 01",
+    "version": 3,
+    "worldW": 16,
+    "worldH": 8,
+    "spawn": {
+      "x": 8.5,
+      "y": 4.5,
+      "angle": 0.0
+    },
+    "textures": [
+      "resource/doom-wall.png",
+      "resource/og-metal-wall.png",
+      "resource/granite1.png",
+      "resource/wall2.jpg",
+      "resource/floor.png",
+      "resource/ceiling-2.png"
+    ]
+  },
+  "rooms": [
+    {
+      "id": "main",
+      "floor": {
+        "texId": 4,
+        "brightness": 0
+      },
+      "ceiling": {
+        "texId": 5,
+        "brightness": -10
+      },
+      "light": 1.0,
+      "border": {
+        "comment": "Perimeter — per-side textures, subtle brightness variation",
+        "x": 0,
+        "y": 0,
+        "w": 16,
+        "h": 8,
+        "sides": [
+          {
+            "texId": 0,
+            "brightness": 0
+          },
+          {
+            "texId": 0,
+            "brightness": 5
+          },
+          {
+            "texId": 0,
+            "brightness": 0
+          },
+          {
+            "texId": 0,
+            "brightness": -5
+          }
+        ]
+      },
+      "geometry": [
+        {
+          "type": "rect",
+          "comment": "Interior pillar — granite, brightened on facing sides",
+          "x": 3,
+          "y": 2,
+          "w": 2,
+          "h": 2,
+          "sides": [
+            {
+              "texId": 2,
+              "brightness": 10
+            },
+            {
+              "texId": 2,
+              "brightness": 5
+            },
+            {
+              "texId": 2,
+              "brightness": 10
+            },
+            {
+              "texId": 2,
+              "brightness": 5
+            }
+          ]
+        },
+        {
+          "type": "polygon",
+          "comment": "Triangle — metal edges with mixed brightness",
+          "points": [
+            [
+              11,
+              1
+            ],
+            [
+              14,
+              1
+            ],
+            [
+              14,
+              4
+            ]
+          ],
+          "colors": [
+            {
+              "texId": 1,
+              "brightness": 0
+            },
+            {
+              "texId": 3,
+              "brightness": 15
+            },
+            {
+              "texId": 1,
+              "brightness": -10
+            }
+          ]
+        },
+        {
+          "type": "segment",
+          "comment": "Diagonal — wall2, darkened to suggest shadow",
+          "x1": 9,
+          "y1": 6,
+          "x2": 13,
+          "y2": 3,
+          "texId": 3,
+          "brightness": -20
+        }
+      ]
+    }
+  ]
+}

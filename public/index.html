@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Raycaster</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- Start menu — visible by default, hidden on Play -->
+  <div id="start-overlay">
+    <div id="start-panel">
+      <h1 class="start-title">RAYCASTER</h1>
+      <ul class="threeD-button-set" id="start-menu-list" role="menu" aria-label="Main menu">
+        <li role="none"><button id="start-play-btn" role="menuitem">Play</button></li>
+        <li role="none"><button id="start-settings-btn" role="menuitem">Settings</button></li>
+      </ul>
+    </div>
+  </div>
+
+  <canvas id="c"></canvas>
+
+  <div class="wasd-pad">
+    <div class="key" data-key="w" tabindex="0">
+      <span class="arrow">▲</span>
+      <span class="label">W</span>
+      <span class="hint">Forward</span>
+    </div>
+    <div class="key" data-key="a" tabindex="0">
+      <span class="arrow">◀</span>
+      <span class="label">A</span>
+      <span class="hint">Left</span>
+    </div>
+    <div class="key" data-key="s" tabindex="0">
+      <span class="arrow">▼</span>
+      <span class="label">S</span>
+      <span class="hint">Back</span>
+    </div>
+    <div class="key" data-key="d" tabindex="0">
+      <span class="arrow">▶</span>
+      <span class="label">D</span>
+      <span class="hint">Right</span>
+    </div>
+  </div>
+
+  <!-- Settings trigger -->
+  <button id="cfg-btn" class="hud-btn" title="Settings" aria-label="Open settings">
+    <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8"
+      stroke-linecap="round" stroke-linejoin="round">
+      <line x1="3" y1="5" x2="15" y2="5" />
+      <line x1="3" y1="9" x2="15" y2="9" />
+      <line x1="3" y1="13" x2="15" y2="13" />
+      <circle cx="7" cy="5" r="1.8" fill="currentColor" stroke="none" />
+      <circle cx="11" cy="9" r="1.8" fill="currentColor" stroke="none" />
+      <circle cx="6" cy="13" r="1.8" fill="currentColor" stroke="none" />
+    </svg>
+  </button>
+
+  <!-- Fullscreen toggle -->
+  <button id="fs-btn" class="hud-btn" title="Toggle fullscreen" aria-label="Toggle fullscreen">
+    <svg id="fs-icon" width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8"
+      stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="1,6 1,1 6,1" />
+      <polyline points="12,1 17,1 17,6" />
+      <polyline points="17,12 17,17 12,17" />
+      <polyline points="6,17 1,17 1,12" />
+    </svg>
+  </button>
+
+  <!-- Settings / pause overlay -->
+  <div id="cfg-overlay" aria-hidden="true">
+    <div id="cfg-panel" role="dialog" aria-label="Settings" aria-modal="true">
+
+      <!-- ── Panel header ───────────────────────────────────────────── -->
+      <div class="cfg-header">
+        <span class="cfg-title-text">SETTINGS</span>
+        <button class="cfg-close-btn" id="cfg-close-btn" aria-label="Close settings">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round">
+            <line x1="1" y1="1" x2="13" y2="13" />
+            <line x1="13" y1="1" x2="1" y2="13" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- ── Two-column body ────────────────────────────────────────── -->
+      <div class="cfg-body">
+
+        <!-- Left nav -->
+        <nav class="cfg-nav" aria-label="Settings categories">
+          <button class="cfg-nav-item active" data-target="sect-game">
+            <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="9" r="7" />
+              <polyline points="9,5 9,9 12,12" />
+            </svg>
+            Game
+          </button>
+          <button class="cfg-nav-item" data-target="sect-camera">
+            <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="5" width="14" height="10" rx="2" />
+              <circle cx="9" cy="10" r="3" />
+              <path d="M6 5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" />
+            </svg>
+            Camera
+          </button>
+          <button class="cfg-nav-item" data-target="sect-display">
+            <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="14" height="10" rx="2" />
+              <line x1="6" y1="15" x2="12" y2="15" />
+              <line x1="9" y1="13" x2="9" y2="15" />
+            </svg>
+            Display
+          </button>
+          <button class="cfg-nav-item" data-target="sect-controls">
+            <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="5" width="14" height="10" rx="3" />
+              <circle cx="6" cy="10" r="1.2" fill="currentColor" stroke="none" />
+              <line x1="12" y1="8" x2="12" y2="10" />
+              <line x1="11" y1="9" x2="13" y2="9" />
+            </svg>
+            Controls
+          </button>
+          <button class="cfg-nav-item" data-target="sect-audio">
+            <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="3,6 8,6 12,3 12,15 8,12 3,12" />
+              <path d="M14.5 6.5a4 4 0 0 1 0 5" />
+            </svg>
+            Audio
+          </button>
+
+          <button class="cfg-nav-item cfg-row-hidden" data-target="sect-player" id="nav-player">
+            <svg width="15" height="15" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="6" r="3" />
+              <path d="M3 16c0-3.314 2.686-6 6-6s6 2.686 6 6" />
+            </svg>
+            Player
+          </button>
+
+          <div class="cfg-nav-spacer"></div>
+          <button class="cfg-3d-action" id="cfg-resume-btn">Resume</button>
+        </nav>
+
+        <!-- Right scrollable content -->
+        <div class="cfg-content" id="cfg-content">
+
+          <!-- ── GAME ──────────────────────────────────────────────── -->
+          <section class="cfg-section" id="sect-game">
+            <div class="cfg-section-heading">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="9" r="7" />
+                <polyline points="9,5 9,9 12,12" />
+              </svg>
+              Game
+            </div>
+
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Show Minimap</div>
+                <div class="cfg-toggle-hint">Always visible during gameplay</div>
+              </div>
+              <label class="cfg-toggle"><input type="checkbox" id="toggle-minimap" checked><span
+                  class="cfg-toggle-track"></span></label>
+            </div>
+
+            <!-- DUMMY: no JS binding — toggle state is not read anywhere -->
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Head Bobbing <span class="cfg-dummy">(dummy)</span></div>
+                <div class="cfg-toggle-hint">Camera sway while moving</div>
+              </div>
+              <label class="cfg-toggle"><input type="checkbox" checked><span class="cfg-toggle-track"></span></label>
+            </div>
+
+            <!-- DUMMY: no JS binding — toggle state is not read anywhere -->
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Crosshair <span class="cfg-dummy">(dummy)</span></div>
+                <div class="cfg-toggle-hint">Center-screen reticle</div>
+              </div>
+              <label class="cfg-toggle"><input type="checkbox"><span class="cfg-toggle-track"></span></label>
+            </div>
+
+            <!-- DUMMY: slider value is displayed but not passed to any engine system -->
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Movement Speed <span class="cfg-dummy">(dummy)</span></span>
+                <span class="cfg-slider-value" id="val-speed">5</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-speed" min="1" max="10" value="5">
+            </div>
+
+            <!-- DUMMY: slider value is displayed but not passed to any engine system -->
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Interaction Range <span class="cfg-dummy">(dummy)</span></span>
+                <span class="cfg-slider-value" id="val-range">3</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-range" min="1" max="8" value="3">
+            </div>
+
+            <!-- DEV: visible only when IS_DEV build flag is true (ui.js).   -->
+            <!-- Gating this row hides all dev-tool descendants automatically -->
+            <!-- via the SettingsManager requires chain.                      -->
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Dev Mode</div>
+                <div class="cfg-toggle-hint">Enable developer tools and overlays</div>
+              </div>
+              <label class="cfg-toggle" title="Toggle developer mode">
+                <input type="checkbox" id="toggle-devmode">
+                <span class="cfg-toggle-track"></span>
+              </label>
+            </div>
+          </section>
+
+          <!-- ── CAMERA ────────────────────────────────────────────── -->
+          <section class="cfg-section" id="sect-camera">
+            <div class="cfg-section-heading">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="5" width="14" height="10" rx="2" />
+                <circle cx="9" cy="10" r="3" />
+                <path d="M6 5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" />
+              </svg>
+              Camera
+            </div>
+
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Field of View</span>
+                <span class="cfg-slider-value" id="val-fov">60°</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-fov" min="45" max="110" value="60">
+            </div>
+
+            <!-- DUMMY: slider value is displayed but not passed to any engine system -->
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Look Sensitivity <span class="cfg-dummy">(dummy)</span></span>
+                <span class="cfg-slider-value" id="val-sens">5</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-sens" min="1" max="10" value="5">
+            </div>
+
+            <!-- DUMMY: no JS binding — toggle state is not read anywhere -->
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Invert Y-Axis <span class="cfg-dummy">(dummy)</span></div>
+                <div class="cfg-toggle-hint">Flip vertical look direction</div>
+              </div>
+              <label class="cfg-toggle"><input type="checkbox"><span class="cfg-toggle-track"></span></label>
+            </div>
+
+            <!-- DUMMY: no JS binding — toggle state is not read anywhere -->
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Smooth Camera <span class="cfg-dummy">(dummy)</span></div>
+                <div class="cfg-toggle-hint">Interpolate camera rotation</div>
+              </div>
+              <label class="cfg-toggle"><input type="checkbox" checked><span class="cfg-toggle-track"></span></label>
+            </div>
+
+            <!-- DUMMY: slider value is displayed but not passed to any engine system -->
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Near Clip Distance <span class="cfg-dummy">(dummy)</span></span>
+                <span class="cfg-slider-value" id="val-clip">0.1</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-clip" min="1" max="10" value="1">
+            </div>
+          </section>
+
+          <!-- ── DISPLAY ───────────────────────────────────────────── -->
+          <section class="cfg-section" id="sect-display">
+            <div class="cfg-section-heading">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="14" height="10" rx="2" />
+                <line x1="6" y1="15" x2="12" y2="15" />
+                <line x1="9" y1="13" x2="9" y2="15" />
+              </svg>
+              Display
+            </div>
+
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Debug Info</div>
+                <div class="cfg-toggle-hint">Show position, velocity &amp; angle</div>
+              </div>
+              <label class="cfg-toggle" title="Show debug overlay">
+                <input type="checkbox" id="toggle-debug">
+                <span class="cfg-toggle-track"></span>
+              </label>
+            </div>
+
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Performance Overlay</div>
+                <div class="cfg-toggle-hint">Requires Debug Info to be on</div>
+              </div>
+              <label class="cfg-toggle" title="Show performance timings inside debug overlay">
+                <input type="checkbox" id="toggle-perf">
+                <span class="cfg-toggle-track"></span>
+              </label>
+            </div>
+
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Fog Distance</span>
+                <span class="cfg-slider-value" id="val-fog-dist">12</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-fog-dist" min="1" max="30" value="12">
+            </div>
+
+            <div class="res-dropdown cfg-3d-row" id="res-dropdown">
+              <div class="cfg-section-label" style="margin-bottom:0;border-bottom:none;padding-bottom:0;">Render
+                Resolution</div>
+              <button class="res-dropdown-btn" id="res-dropdown-btn" aria-haspopup="listbox" aria-expanded="false">
+                <span id="res-dropdown-label">— select —</span>
+                <svg class="res-dropdown-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none"
+                  stroke="#7b8cff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="2,4 6,8 10,4" />
+                </svg>
+              </button>
+              <ul class="res-dropdown-list" id="res-dropdown-list" role="listbox" aria-label="Render Resolution">
+                <li class="res-dropdown-item" role="option" data-value="960x480">
+                  <span class="res-item-label">480p</span>
+                  <span class="res-item-sub">960 × 480</span>
+                </li>
+                <li class="res-dropdown-item" role="option" data-value="1280x640">
+                  <span class="res-item-label">720p</span>
+                  <span class="res-item-sub">1280 × 640</span>
+                </li>
+                <li class="res-dropdown-item" role="option" data-value="1920x960">
+                  <span class="res-item-label">1080p</span>
+                  <span class="res-item-sub">1920 × 960</span>
+                </li>
+                <li class="res-dropdown-item" role="option" data-value="2560x1280">
+                  <span class="res-item-label">1440p</span>
+                  <span class="res-item-sub">2560 × 1280</span>
+                </li>
+                <li class="res-dropdown-item" role="option" data-value="3840x1920">
+                  <span class="res-item-label">4K</span>
+                  <span class="res-item-sub">3840 × 1920</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- DUMMY: slider value is displayed but not passed to any engine system -->
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Brightness <span class="cfg-dummy">(dummy)</span></span>
+                <span class="cfg-slider-value" id="val-bright">7</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-bright" min="1" max="10" value="7">
+            </div>
+          </section>
+
+          <!-- ── CONTROLS ──────────────────────────────────────────── -->
+          <section class="cfg-section" id="sect-controls">
+            <div class="cfg-section-heading">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="5" width="14" height="10" rx="3" />
+                <circle cx="6" cy="10" r="1.2" fill="currentColor" stroke="none" />
+                <line x1="12" y1="8" x2="12" y2="10" />
+                <line x1="11" y1="9" x2="13" y2="9" />
+              </svg>
+              Controls
+            </div>
+
+            <!-- DUMMY: no JS binding — toggle state is not read anywhere -->
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Touch Controls <span class="cfg-dummy">(dummy)</span></div>
+                <div class="cfg-toggle-hint">On-screen WASD pad</div>
+              </div>
+              <label class="cfg-toggle"><input type="checkbox" checked><span class="cfg-toggle-track"></span></label>
+            </div>
+
+            <!-- DUMMY: no JS binding — toggle state is not read anywhere -->
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Pointer Lock <span class="cfg-dummy">(dummy)</span></div>
+                <div class="cfg-toggle-hint">Lock cursor for mouse look</div>
+              </div>
+              <label class="cfg-toggle"><input type="checkbox" checked><span class="cfg-toggle-track"></span></label>
+            </div>
+
+            <!-- DUMMY: keybind display only — remapping not implemented -->
+            <div class="cfg-keybind-group">
+              <div class="cfg-keybind-row">
+                <span class="cfg-toggle-label">Move Forward <span class="cfg-dummy">(dummy)</span></span>
+                <kbd class="cfg-key">W</kbd>
+              </div>
+              <div class="cfg-keybind-row">
+                <span class="cfg-toggle-label">Move Backward <span class="cfg-dummy">(dummy)</span></span>
+                <kbd class="cfg-key">S</kbd>
+              </div>
+              <div class="cfg-keybind-row">
+                <span class="cfg-toggle-label">Strafe Left <span class="cfg-dummy">(dummy)</span></span>
+                <kbd class="cfg-key">A</kbd>
+              </div>
+              <div class="cfg-keybind-row">
+                <span class="cfg-toggle-label">Strafe Right <span class="cfg-dummy">(dummy)</span></span>
+                <kbd class="cfg-key">D</kbd>
+              </div>
+              <div class="cfg-keybind-row">
+                <span class="cfg-toggle-label">Open Settings <span class="cfg-dummy">(dummy)</span></span>
+                <kbd class="cfg-key">ESC</kbd>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── AUDIO ─────────────────────────────────────────────── -->
+          <section class="cfg-section" id="sect-audio">
+            <div class="cfg-section-heading">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="3,6 8,6 12,3 12,15 8,12 3,12" />
+                <path d="M14.5 6.5a4 4 0 0 1 0 5" />
+              </svg>
+              Audio
+            </div>
+
+            <!-- DUMMY: no JS binding — toggle state is not read anywhere -->
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Master Audio <span class="cfg-dummy">(dummy)</span></div>
+                <div class="cfg-toggle-hint">Enable all sound output</div>
+              </div>
+              <label class="cfg-toggle"><input type="checkbox" checked><span class="cfg-toggle-track"></span></label>
+            </div>
+
+            <!-- DUMMY: slider value is displayed but not passed to any engine system -->
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Master Volume <span class="cfg-dummy">(dummy)</span></span>
+                <span class="cfg-slider-value" id="val-master">8</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-master" min="0" max="10" value="8">
+            </div>
+
+            <!-- DUMMY: slider value is displayed but not passed to any engine system -->
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Music Volume <span class="cfg-dummy">(dummy)</span></span>
+                <span class="cfg-slider-value" id="val-music">5</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-music" min="0" max="10" value="5">
+            </div>
+
+            <!-- DUMMY: slider value is displayed but not passed to any engine system -->
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">SFX Volume <span class="cfg-dummy">(dummy)</span></span>
+                <span class="cfg-slider-value" id="val-sfx">7</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-sfx" min="0" max="10" value="7">
+            </div>
+
+            <!-- DUMMY: no JS binding — toggle state is not read anywhere -->
+            <div class="cfg-toggle-row cfg-3d-row">
+              <div>
+                <div class="cfg-toggle-label">Spatial Audio <span class="cfg-dummy">(dummy)</span></div>
+                <div class="cfg-toggle-hint">3D positional sound</div>
+              </div>
+              <label class="cfg-toggle"><input type="checkbox" checked><span class="cfg-toggle-track"></span></label>
+            </div>
+          </section>
+
+
+          <!-- ── PLAYER (dev only) ──────────────────────────────── -->
+          <section class="cfg-section cfg-row-hidden" id="sect-player">
+            <div class="cfg-section-heading">
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="6" r="3" />
+                <path d="M3 16c0-3.314 2.686-6 6-6s6 2.686 6 6" />
+              </svg>
+              Player Stats
+            </div>
+
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Max Speed</span>
+                <span class="cfg-slider-value" id="val-player-maxspeed">0.25</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-player-maxspeed" min="0.05" max="0.50" step="0.01"
+                value="0.25">
+            </div>
+
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Acceleration</span>
+                <span class="cfg-slider-value" id="val-player-accel">0.04</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-player-accel" min="0.01" max="0.15" step="0.01"
+                value="0.04">
+            </div>
+
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Resistance</span>
+                <span class="cfg-slider-value" id="val-player-friction">0.82</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-player-friction" min="0.50" max="0.99" step="0.01"
+                value="0.82">
+            </div>
+
+            <div class="cfg-slider-row cfg-3d-row">
+              <div class="cfg-slider-header">
+                <span class="cfg-toggle-label">Slide Threshold</span>
+                <span class="cfg-slider-value" id="val-player-slide">0.25</span>
+              </div>
+              <input type="range" class="cfg-slider" id="slider-player-slide" min="0.05" max="0.80" step="0.05"
+                value="0.25">
+            </div>
+          </section>
+
+        </div><!-- /.cfg-content -->
+      </div><!-- /.cfg-body -->
+
+    </div>
+  </div>
+
+  <script src="js/ui.js"></script>
+
+  <script type="module" src="main.js"></script>
+</body>
+
+</html>

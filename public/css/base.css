@@ -1,0 +1,35 @@
+/* ── Reset & base ─────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  background: #0f0f1a;
+  font-family: 'Segoe UI', sans-serif;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 20px;
+}
+
+/* ── Layout custom properties ────────────────────────────────────── */
+:root {
+  --key-size: clamp(44px, min(14vw, 15vh), 82px);
+  --key-gap: clamp(5px, 1vw, 12px);
+  --ctrl-h: calc(var(--key-size) * 2 + var(--key-gap) + 40px);
+}

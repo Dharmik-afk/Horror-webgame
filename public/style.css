@@ -1,0 +1,25 @@
+/* ── style.css ───────────────────────────────────────────────────── */
+/* Manifest only. Add new UI systems as additional @import entries.  */
+/* Order matters: base tokens must load before anything that uses    */
+/* --key-size / --ctrl-h custom properties.                          */
+
+/* reset, html/body, :root tokens    */
+@import url('css/base.css');
+
+/* #c WebGL canvas sizing             */
+@import url('css/canvas.css');
+
+/* WASD pad, .key states, ripple      */
+@import url('css/wasd.css');
+
+/* .hud-btn, #cfg-btn, #fs-btn        */
+@import url('css/hud-buttons.css');
+
+/* full-viewport settings UI (.sui-*) */
+@import url('css/settings.css');
+
+/* start overlay + 3D button list     */
+@import url('css/start-menu.css');
+
+/* body.is-fullscreen overrides       */
+@import url('css/fullscreen.css');
