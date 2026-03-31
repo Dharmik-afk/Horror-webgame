@@ -172,7 +172,7 @@ import {
 } from './map.js';
 
 let _fovHalfTan = Math.tan(Math.PI / 6);
-let _fovDeg     = 60;   // degrees — kept in sync with _fovHalfTan for HUD display
+let _fovDeg = 60;   // degrees — kept in sync with _fovHalfTan for HUD display
 
 // ── setFov(deg) / getFov() ────────────────────────────────────────
 // setFov updates the camera plane width for the next castRays() call.
@@ -181,7 +181,7 @@ let _fovDeg     = 60;   // degrees — kept in sync with _fovHalfTan for HUD dis
 // needed here — just mutate the module-level values.
 // getFov() returns the current FOV in degrees for HUD display.
 export function setFov(deg) {
-  _fovDeg     = deg;
+  _fovDeg = deg;
   _fovHalfTan = Math.tan((deg / 2) * Math.PI / 180);
 }
 
@@ -278,7 +278,8 @@ const float T_MIN      = 1.0e-4;
 uniform float u_fogDist;
 const float FOG_AMT    = 0.85;
 
-out vec4 fragColor;
+layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outDist;
 
 void main() {
   vec2 rayDir = v_rayDir;
@@ -404,7 +405,20 @@ void main() {
 
   vec3  wallCo   = mix(bestCol * fScale, texSample * fScale, useTex);
   float showWall = hitFound * inStrip * step(0.001, bestT);
-  fragColor = vec4(mix(bgCo, wallCo, showWall), 1.0);
+
+  outColor = vec4(mix(bgCo, wallCo, showWall), 1.0);
+
+  // ── Distance Packing ──────────────────────────────────────────
+  // Packs a float [0, 255] into three bytes (RGB) for RGBA8 storage.
+  // This provides ~0.00001 unit precision (1 part in 16.7M).
+  float finalDist = isSky > 0.5 ? distCeil : distFloor;
+  finalDist = mix(finalDist, bestT, showWall);
+  float d = clamp(finalDist, 0.0, 255.0);
+  outDist.r = floor(d) / 255.0;
+  d = fract(d) * 255.0;
+  outDist.g = floor(d) / 255.0;
+  outDist.b = fract(d);
+  outDist.a = 1.0;
 }`;
 let _program;
 let _vao;
@@ -413,7 +427,16 @@ let _uH;       // cached for resizeViewport
 let _uFogDist; // cached for setFogDist
 // Floor / ceiling uniform locations — cached at initRenderer()
 let _uFloorTexId, _uFloorColor, _uFloorBright;
-let _uCeilTexId,  _uCeilColor,  _uCeilBright;
+let _uCeilTexId, _uCeilColor, _uCeilBright;
+
+// ── MRT / Offscreen State ─────────────────────────────────────────
+let _fbo;
+let _colorTex, _distTex;
+let _segTex, _atlasTex; // Cached for per-frame re-binding
+
+export function getColorTex() { return _colorTex; }
+export function getDistTex() { return _distTex; }
+export function getFbo() { return _fbo; }
 
 // ── GPU info string ───────────────────────────────────────────────
 // Read once at initRenderer().  Exported via getGPUInfo().
@@ -529,10 +552,8 @@ export function initRenderer() {
   _program = _linkProgram(vs, fs);
 
   _vao = gl.createVertexArray();
-
-  const segTex = buildSegmentTexture(gl);
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, segTex);
+  
+  _segTex = buildSegmentTexture(gl);
 
   gl.useProgram(_program);
 
@@ -543,21 +564,21 @@ export function initRenderer() {
   _uFogDist = gl.getUniformLocation(_program, 'u_fogDist');
 
   // ── Floor / ceiling uniform locations ─────────────────────────
-  _uFloorTexId     = gl.getUniformLocation(_program, 'u_floorTexId');
-  _uFloorColor     = gl.getUniformLocation(_program, 'u_floorColor');
-  _uFloorBright    = gl.getUniformLocation(_program, 'u_floorBrightness');
-  _uCeilTexId      = gl.getUniformLocation(_program, 'u_ceilTexId');
-  _uCeilColor      = gl.getUniformLocation(_program, 'u_ceilColor');
-  _uCeilBright     = gl.getUniformLocation(_program, 'u_ceilBrightness');
+  _uFloorTexId = gl.getUniformLocation(_program, 'u_floorTexId');
+  _uFloorColor = gl.getUniformLocation(_program, 'u_floorColor');
+  _uFloorBright = gl.getUniformLocation(_program, 'u_floorBrightness');
+  _uCeilTexId = gl.getUniformLocation(_program, 'u_ceilTexId');
+  _uCeilColor = gl.getUniformLocation(_program, 'u_ceilColor');
+  _uCeilBright = gl.getUniformLocation(_program, 'u_ceilBrightness');
 
   // Defaults match the old hardcoded gradient midpoint colours so the
   // scene looks reasonable before setFloorMat / setCeilMat are called.
-  gl.uniform1f(_uFloorTexId,  -1.0);
-  gl.uniform3f(_uFloorColor,   35 / 255, 28 / 255, 23 / 255);
-  gl.uniform1f(_uFloorBright,  0.0);
-  gl.uniform1f(_uCeilTexId,   -1.0);
-  gl.uniform3f(_uCeilColor,    17 / 255, 18 / 255, 50 / 255);
-  gl.uniform1f(_uCeilBright,   0.0);
+  gl.uniform1f(_uFloorTexId, -1.0);
+  gl.uniform3f(_uFloorColor, 35 / 255, 28 / 255, 23 / 255);
+  gl.uniform1f(_uFloorBright, 0.0);
+  gl.uniform1f(_uCeilTexId, -1.0);
+  gl.uniform3f(_uCeilColor, 17 / 255, 18 / 255, 50 / 255);
+  gl.uniform1f(_uCeilBright, 0.0);
 
   gl.uniform1i(gl.getUniformLocation(_program, 'u_segments'), 0);
   gl.uniform1i(gl.getUniformLocation(_program, 'u_segmentCount'), WALLS_COUNT);
@@ -565,18 +586,26 @@ export function initRenderer() {
 
   // ── Dummy texture array (unit 1) ───────────────────────────────
   // Gives u_texAtlas a valid binding before loadTextureAtlas() runs.
-  const _dummyArray = gl.createTexture();
+  const dummyArray = gl.createTexture();
+  _atlasTex = dummyArray;
   gl.activeTexture(gl.TEXTURE1);
-  gl.bindTexture(gl.TEXTURE_2D_ARRAY, _dummyArray);
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, _atlasTex);
   gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA, 1, 1, 1, 0,
-                gl.RGBA, gl.UNSIGNED_BYTE,
-                new Uint8Array([255, 255, 255, 255]));
+    gl.RGBA, gl.UNSIGNED_BYTE,
+    new Uint8Array([255, 255, 255, 255]));
   gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.activeTexture(gl.TEXTURE0);
   gl.uniform1i(gl.getUniformLocation(_program, 'u_texAtlas'), 1);
 
+  // Create the offscreen framebuffer for MRT (Color + Distance).
+  console.info('[renderer.js] Initializing MRT pipeline...');
+  _fbo = gl.createFramebuffer();
+  _colorTex = gl.createTexture();
+  _distTex = gl.createTexture();
+
   // Set initial viewport + u_H using the current canvas size.
+  // This will also allocate the FBO texture storage.
   resizeViewport(gl.drawingBufferWidth, gl.drawingBufferHeight);
 
   // Clear colour: opaque black.  With alpha:false on the context this
@@ -604,6 +633,24 @@ export function resizeViewport(w, h) {
   gl.viewport(0, 0, w, h);
   gl.useProgram(_program);
   gl.uniform1f(_uH, h);
+
+  // Update FBO textures to match new resolution
+  gl.bindTexture(gl.TEXTURE_2D, _colorTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+  gl.bindTexture(gl.TEXTURE_2D, _distTex);
+  // Use standard RGBA8 instead of R32F for maximum compatibility.
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, _fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, _colorTex, 0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, _distTex, 0);
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 
 // ── castRays(player, measure) ─────────────────────────────────────
@@ -636,6 +683,14 @@ export function castRays(player, measure = false) {
   gl.useProgram(_program);
   gl.bindVertexArray(_vao);
 
+  // 1. Re-establish texture state for the environment pass.
+  // This prevents feedback loops if a previous pass (like sprites)
+  // left the distance buffer bound to one of our units.
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, _segTex);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, _atlasTex);
+
   const sinA = player.sinA;
   const cosA = player.cosA;
 
@@ -646,16 +701,37 @@ export function castRays(player, measure = false) {
   // ── Path A — async GPU query (extension available) ────────────
   if (_ext) {
     if (measure) {
-      // Query opens after all state is set; only the draw call sits
-      // inside it.  State changes inside an active query are legal per
-      // spec but unreliable on some drivers.
+      gl.bindFramebuffer(gl.FRAMEBUFFER, _fbo);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+      gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+      gl.clearBufferfv(gl.COLOR, 1, [1.0, 0.0, 0.0, 1.0]); // 255.0 packed
+
       gl.beginQuery(_ext.TIME_ELAPSED_EXT, _queries[_pendingIdx ^ 1]);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.endQuery(_ext.TIME_ELAPSED_EXT);
+
       _pendingIdx ^= 1;
       _hasSubmitted = true;
+      
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, _fbo);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.blitFramebuffer(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight,
+        0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight,
+        gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     } else {
+      // Path A: Bare draw (measure=false)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, _fbo);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+      gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+      gl.clearBufferfv(gl.COLOR, 1, [1.0, 0.0, 0.0, 1.0]); // 255.0 packed
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, _fbo);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.blitFramebuffer(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight,
+        0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight,
+        gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
     return null;
   }
@@ -666,14 +742,45 @@ export function castRays(player, measure = false) {
   //   drawMinimap() and drawDebug() are timed after this returns
   //   so the stall cost never leaks into their measurements.
   if (!measure) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, _fbo);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+    gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+    gl.clearBufferfv(gl.COLOR, 1, [1000.0, 0.0, 0.0, 1.0]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, _fbo);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    gl.blitFramebuffer(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight,
+      0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight,
+      gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return null;
   }
 
   const t0 = performance.now();
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, _fbo);
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+  // Color (0) -> Black; Distance (1) -> MAX_T (not occluded)
+  gl.clearBufferfv(gl.COLOR, 0, [0.0, 0.0, 0.0, 1.0]);
+  gl.clearBufferfv(gl.COLOR, 1, [1000.0, 0.0, 0.0, 1.0]);
+
   gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
   gl.finish();
   return performance.now() - t0;
+}
+
+// ── present() ─────────────────────────────────────────────────────
+// Blits the offscreen color buffer to the hardware framebuffer.
+// Call this after all 3D passes (env + sprites) are complete.
+export function present() {
+  gl.bindFramebuffer(gl.READ_FRAMEBUFFER, _fbo);
+  gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+  gl.blitFramebuffer(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight,
+    0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight,
+    gl.COLOR_BUFFER_BIT, gl.NEAREST);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 
 // ── autoDetectResolution(player) ──────────────────────────────────
@@ -712,68 +819,68 @@ export async function autoDetectResolution(player) {
 
   try {
 
-  // Resolution tiers, highest to lowest.
-  const TIERS = [
-    [3840, 1920],
-    [2560, 1280],
-    [1920, 960],
-    [1280, 640],
-    [960, 480],
-  ];
+    // Resolution tiers, highest to lowest.
+    const TIERS = [
+      [3840, 1920],
+      [2560, 1280],
+      [1920, 960],
+      [1280, 640],
+      [960, 480],
+    ];
 
-  // 18 ms = 55.5 fps floor.  Gives 1.33 ms of jitter headroom above
-  // the 16.67 ms 60fps boundary — devices that genuinely can't hit
-  // 60 fps will read well above 18 ms, not just slightly over 16.67.
-  const RAF_BUDGET_MS = 18;
+    // 18 ms = 55.5 fps floor.  Gives 1.33 ms of jitter headroom above
+    // the 16.67 ms 60fps boundary — devices that genuinely can't hit
+    // 60 fps will read well above 18 ms, not just slightly over 16.67.
+    const RAF_BUDGET_MS = 18;
 
-  // 3 warmup frames per tier: flushes queued work from the previous
-  // tier and lets the driver reach steady-state clock speed.
-  const WARMUP = 3;
+    // 3 warmup frames per tier: flushes queued work from the previous
+    // tier and lets the driver reach steady-state clock speed.
+    const WARMUP = 3;
 
-  // 5 measured frames: ~83 ms at 60 fps, ~200 ms at 25 fps.
-  // Enough to smooth out vsync jitter without excessive startup time.
-  const MEASURE = 5;
+    // 5 measured frames: ~83 ms at 60 fps, ~200 ms at 25 fps.
+    // Enough to smooth out vsync jitter without excessive startup time.
+    const MEASURE = 5;
 
-  for (const [w, h] of TIERS) {
-    // Switch resolution — fires resizeViewport via _onResize callback.
-    setResolution(w, h);
+    for (const [w, h] of TIERS) {
+      // Switch resolution — fires resizeViewport via _onResize callback.
+      setResolution(w, h);
 
-    // Warmup: render frames, don't measure them.
-    for (let i = 0; i < WARMUP; i++) {
-      await new Promise(r => requestAnimationFrame(r));
+      // Warmup: render frames, don't measure them.
+      for (let i = 0; i < WARMUP; i++) {
+        await new Promise(r => requestAnimationFrame(r));
+        castRays(player, false);
+      }
+
+      // Seed prev from the rAF timestamp immediately after warmup,
+      // with a real draw call so the compositor has actual work to do.
+      let prev = await new Promise(r => requestAnimationFrame(r));
       castRays(player, false);
+
+      // Measure rAF cadence — each delta is wall-clock time for one
+      // full presented frame including compositor transfer.
+      let total = 0;
+      for (let i = 0; i < MEASURE; i++) {
+        const ts = await new Promise(r => requestAnimationFrame(r));
+        castRays(player, false);
+        total += ts - prev;
+        prev = ts;
+      }
+
+      const avgMs = total / MEASURE;
+
+      console.info(
+        `[autoDetect] ${w}×${h}  rAF avg ${avgMs.toFixed(1)} ms` +
+        (avgMs <= RAF_BUDGET_MS ? '  ✓ selected' : '  — stepping down')
+      );
+
+      if (avgMs <= RAF_BUDGET_MS) {
+        // setResolution already committed this tier — return result.
+        return { w, h, avgMs };
+      }
     }
-
-    // Seed prev from the rAF timestamp immediately after warmup,
-    // with a real draw call so the compositor has actual work to do.
-    let prev = await new Promise(r => requestAnimationFrame(r));
-    castRays(player, false);
-
-    // Measure rAF cadence — each delta is wall-clock time for one
-    // full presented frame including compositor transfer.
-    let total = 0;
-    for (let i = 0; i < MEASURE; i++) {
-      const ts = await new Promise(r => requestAnimationFrame(r));
-      castRays(player, false);
-      total += ts - prev;
-      prev = ts;
-    }
-
-    const avgMs = total / MEASURE;
-
-    console.info(
-      `[autoDetect] ${w}×${h}  rAF avg ${avgMs.toFixed(1)} ms` +
-      (avgMs <= RAF_BUDGET_MS ? '  ✓ selected' : '  — stepping down')
-    );
-
-    if (avgMs <= RAF_BUDGET_MS) {
-      // setResolution already committed this tier — return result.
-      return { w, h, avgMs };
-    }
-  }
-  gl.clear(gl.COLOR_BUFFER_BIT);
-  setResolution(960, 480);
-  return { w: 960, h: 480, avgMs: RAF_BUDGET_MS };
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    setResolution(960, 480);
+    return { w: 960, h: 480, avgMs: RAF_BUDGET_MS };
 
   } finally {
     // Restore canvas visibility regardless of which exit path was taken.
@@ -794,15 +901,15 @@ export async function autoDetectResolution(player) {
 //  r/g/b are raw 0–255 integers; normalised to 0–1 here before upload.
 export function setFloorMat(mat) {
   gl.useProgram(_program);
-  gl.uniform1f(_uFloorTexId,  mat.texId);
-  gl.uniform3f(_uFloorColor,  mat.r / 255, mat.g / 255, mat.b / 255);
+  gl.uniform1f(_uFloorTexId, mat.texId);
+  gl.uniform3f(_uFloorColor, mat.r / 255, mat.g / 255, mat.b / 255);
   gl.uniform1f(_uFloorBright, mat.brightness);
 }
 
 export function setCeilMat(mat) {
   gl.useProgram(_program);
-  gl.uniform1f(_uCeilTexId,  mat.texId);
-  gl.uniform3f(_uCeilColor,  mat.r / 255, mat.g / 255, mat.b / 255);
+  gl.uniform1f(_uCeilTexId, mat.texId);
+  gl.uniform3f(_uCeilColor, mat.r / 255, mat.g / 255, mat.b / 255);
   gl.uniform1f(_uCeilBright, mat.brightness);
 }
 
@@ -826,21 +933,22 @@ export async function loadTextureAtlas(paths) {
   }
 
   const images = await Promise.all(paths.map(src => new Promise((resolve, reject) => {
-    const img   = new Image();
-    img.onload  = () => resolve(img);
+    const img = new Image();
+    img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`[renderer.js] Failed to load texture: ${src}`));
-    img.src     = src;
+    img.src = src;
   })));
 
   const ATLAS_W = 64;
   const ATLAS_H = 128;
 
-  const offscreen  = document.createElement('canvas');
-  offscreen.width  = ATLAS_W;
+  const offscreen = document.createElement('canvas');
+  offscreen.width = ATLAS_W;
   offscreen.height = ATLAS_H;
-  const ctx2d      = offscreen.getContext('2d');
+  const ctx2d = offscreen.getContext('2d');
 
   const tex = gl.createTexture();
+  _atlasTex = tex;
   gl.activeTexture(gl.TEXTURE1);
   gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
 
@@ -866,8 +974,8 @@ export async function loadTextureAtlas(paths) {
 
   gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S,     gl.REPEAT);
-  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T,     gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
   gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
 
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);

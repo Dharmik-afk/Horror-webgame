@@ -152,21 +152,30 @@
 import { Player } from './js/player.js';
 import { init as initInput } from './js/input.js';
 import {
-  initRenderer, castRays,
+  initRenderer, castRays, present,
   pollGPUTimer, gpuTimerSupported,
   getGPUInfo, autoDetectResolution,
   setFov, setFogDist, getFov, getFogDist,
   loadTextureAtlas,
   setFloorMat, setCeilMat,
 } from './js/renderer.js';
-import { drawMinimap, clearMinimap, drawCrosshair,
-         drawDebugOverlay, clearDebugOverlay,
-         getDebugSections, setDebugSectionCollapsed } from './js/hud.js';
-import { getW, getH, setResolution } from './js/canvas.js';
-import { loadLevel, SPAWN, TEXTURES, FLOOR_MAT, CEIL_MAT, castCenterRay,
-         WALLS_COUNT, MAX_SEGMENTS, WORLD_W, WORLD_H } from './js/map.js';
 import {
-  connect   as netConnect,
+  initSpriteRenderer,
+  loadSpriteAtlas,
+  drawSprites
+} from './js/sprite_renderer.js';
+import {
+  drawMinimap, clearMinimap, drawCrosshair,
+  drawDebugOverlay, clearDebugOverlay,
+  getDebugSections, setDebugSectionCollapsed
+} from './js/hud.js';
+import { getW, getH, setResolution } from './js/canvas.js';
+import {
+  loadLevel, SPAWN, TEXTURES, FLOOR_MAT, CEIL_MAT, castCenterRay,
+  WALLS_COUNT, MAX_SEGMENTS, WORLD_W, WORLD_H
+} from './js/map.js';
+import {
+  connect as netConnect,
   sendMove,
   onPeerUpdate,
   onPeerLeave,
@@ -185,9 +194,19 @@ const player = new Player(SPAWN.x, SPAWN.y);
 player.angle = SPAWN.angle;
 initInput(player);
 initRenderer();
-await loadTextureAtlas(TEXTURES);
+initSpriteRenderer();
+await Promise.all([
+  loadTextureAtlas(TEXTURES),
+  loadSpriteAtlas('./resource/entity.png')
+]);
 setFloorMat(FLOOR_MAT);
 setCeilMat(CEIL_MAT);
+
+// ── Test Entity ──────────────────────────────────────────────────
+// A static NPC placed in front of the spawn point for visual testing.
+const testEntities = [
+  { pos: { x: SPAWN.x + 2, y: SPAWN.y }, angle: 0 }
+];
 
 // Auto-detect the best render resolution for this device.
 // Top-level await pauses module evaluation — the RAF loop below
@@ -228,6 +247,7 @@ netConnect(`http://${window.location.hostname}:9000`);
 //
 // onPeerLeave: logs to console so disconnections are visible during
 //   development.  Will also remove the peer sprite in Phase 2.
+// onPeerUpdate: extracts peer list from network.js for rendering.
 onPeerUpdate((id, state) => {
   void id; void state;
 });
@@ -470,6 +490,29 @@ function render() {
   const fenceMs = castRays(player, _debugMode >= 2);
   if (fenceMs !== null) _recordGPU(fenceMs);
 
+  // ── Sprite Pass ────────────────────────────────────────────────
+  // 2. Sprite Render Pass (Billboards)
+  // Combine static NPCs and network peers for a unified depth-sorted pass.
+  const activeEntities = [...testEntities];
+  for (const peer of getPeers().values()) {
+    activeEntities.push({
+      pos: peer.pos,
+      angle: peer.angle,
+    });
+  }
+
+  // Z-Sorting (Descending: Farthest first)
+  activeEntities.sort((a, b) => {
+    const da = (a.pos.x - player.pos.x) ** 2 + (a.pos.y - player.pos.y) ** 2;
+    const db = (b.pos.x - player.pos.x) ** 2 + (b.pos.y - player.pos.y) ** 2;
+    return db - da;
+  });
+
+  drawSprites(player, activeEntities, getFogDist());
+
+  // 3. Final Presentation (Composite to screen)
+  present();
+
   // Crosshair — drawn every frame at the screen centre, above the 3D
   // view but below minimap and debug panels.
   drawCrosshair();
@@ -484,39 +527,39 @@ function render() {
   // visible raf/vsync/pipeline rows).  timings is populated only in
   // verbose mode and carries the per-component breakdown rows.
   if (_debugMode >= 1) {
-    const gpuMs   = _sums.castRaysGPU / RING_SIZE;
+    const gpuMs = _sums.castRaysGPU / RING_SIZE;
     const frameMs = _sums.frameMs / RING_SIZE;
 
     // Per-component breakdown — mode 2 only.
     const timings = _debugMode >= 2 ? {
-      update:        _sums.update / RING_SIZE,
-      minimap:       _sums.minimap / RING_SIZE,
-      debug:         _sums.debug / RING_SIZE,
+      update: _sums.update / RING_SIZE,
+      minimap: _sums.minimap / RING_SIZE,
+      debug: _sums.debug / RING_SIZE,
       castRaysFence: !gpuTimerSupported(),
-      frameBudget:   1000 / 60,
+      frameBudget: 1000 / 60,
     } : null;
 
     const debugData = {
       // Performance
       frameMs,
       gpuMs,
-      rafMs:        _sums.rafInterval / RING_SIZE,
+      rafMs: _sums.rafInterval / RING_SIZE,
       displayPeriod: detAvgMs,
       // Rendering
-      renderW:      getW(),
-      renderH:      getH(),
-      fov:          getFov(),
-      fogDist:      getFogDist(),
-      gpuInfo:      getGPUInfo(),
-      wallsCount:   WALLS_COUNT,
-      maxSegments:  MAX_SEGMENTS,
+      renderW: getW(),
+      renderH: getH(),
+      fov: getFov(),
+      fogDist: getFogDist(),
+      gpuInfo: getGPUInfo(),
+      wallsCount: WALLS_COUNT,
+      maxSegments: MAX_SEGMENTS,
       textureCount: TEXTURES.length,
-      worldW:       WORLD_W,
-      worldH:       WORLD_H,
+      worldW: WORLD_W,
+      worldH: WORLD_H,
       // Network
       netConnected: isConnected(),
-      selfId:       getSelfId(),
-      peerCount:    getPeers().size,
+      selfId: getSelfId(),
+      peerCount: getPeers().size,
       // Verbose breakdown (mode 2 only)
       timings,
     };

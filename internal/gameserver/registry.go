@@ -95,7 +95,6 @@ func (r *Registry) broadcast(msg any) {
 		default:
 			fmt.Printf("[registry] send buffer full for %s — skipping\n", id)
 		}
-		fmt.Printf("%v to id=%v\n", msg, id)
 	}
 }
 
