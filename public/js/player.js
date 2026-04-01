@@ -67,7 +67,8 @@ export class Player extends Entity {
   // deceleration is frame-rate independent.
   static FRICTION_60 = 0.82;
   static ACCEL = 0.04;           // tiles / second²  (normalised to 60 fps)
-  static LOOK_SENSITIVITY = 0.007;    // radians per drag-pixel per 60fps-frame
+  static LOOK_SENSITIVITY = 0.025;    // radians per drag-pixel per 60fps-frame
+  static sensitivityMultiplier = 1.0;
 
   // Fraction of velocity that must be tangential for sliding to be
   // allowed.  Below this threshold the full velocity is cancelled.
@@ -122,7 +123,7 @@ export class Player extends Entity {
     // ── Rotate from look-drag ───────────────────────────────────
     // Scale by s so a given drag distance rotates the same angle/second
     // regardless of frame rate.
-    this.angle += this.lookDeltaX * Player.LOOK_SENSITIVITY * s;
+    this.angle += this.lookDeltaX * Player.LOOK_SENSITIVITY * Player.sensitivityMultiplier * s;
     this.lookDeltaX = 0;
 
     // ── Refresh trig cache ──────────────────────────────────────
@@ -366,6 +367,14 @@ export class Player extends Entity {
       this.velocity.x = 0;
       this.velocity.y = 0;
     }
+  }
+
+  /**
+   * Update the global sensitivity multiplier (1 to 10 scale mapped to 0.2 to 2.0).
+   * @param {number} val
+   */
+  static setSensitivityMultiplier(val) {
+    Player.sensitivityMultiplier = val / 5;
   }
 }
 

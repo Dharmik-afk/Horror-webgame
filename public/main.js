@@ -463,6 +463,7 @@ window.__raycaster = {
   setMinimapVisible, // show / hide the minimap
   setFov,            // update the camera FOV (degrees)
   setFogDist,        // update the fog falloff distance uniform
+  setLookSensitivity: v => Player.setSensitivityMultiplier(Number(v)),
   // _setDebugSection — called by ui.js DOM overlay via toggleDebugSection.
   // Delegates to setDebugSectionCollapsed imported from hud.js.
   _setDebugSection: setDebugSectionCollapsed,
