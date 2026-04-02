@@ -22,6 +22,8 @@ type PlayerState struct {
 	X     float64 `json:"x"`
 	Y     float64 `json:"y"`
 	Angle float64 `json:"angle"`
+	Vx    float64 `json:"vx"`
+	Vy    float64 `json:"vy"`
 }
 
 type initMsg struct {
@@ -35,6 +37,8 @@ type playerEntry struct {
 	X     float64 `json:"x"`
 	Y     float64 `json:"y"`
 	Angle float64 `json:"angle"`
+	Vx    float64 `json:"vx"`
+	Vy    float64 `json:"vy"`
 }
 
 type stateMsg struct {
@@ -53,4 +57,6 @@ type moveMsg struct {
 	X     float64 `json:"x"`
 	Y     float64 `json:"y"`
 	Angle float64 `json:"angle"`
+	Vx    float64 `json:"vx"`
+	Vy    float64 `json:"vy"`
 }

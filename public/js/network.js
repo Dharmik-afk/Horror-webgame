@@ -228,6 +228,8 @@ export function sendMove(player) {
   const y = player.pos.y;
   const angle = player.angle
   const now = performance.now();
+  const vx = player.velocity.x;
+  const vy = player.velocity.y;
   if (now - _lastSendTime < SEND_INTERVAL_MS) return;
 
   // Dead-zone: skip if nothing meaningful changed.
@@ -247,7 +249,9 @@ export function sendMove(player) {
     type: 'move',
     x,
     y,
-    angle 
+    angle,
+    vx,
+    vy,
   }));
 }
 /**

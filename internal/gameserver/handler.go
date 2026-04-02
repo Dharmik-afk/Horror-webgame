@@ -67,8 +67,8 @@ func readerLoop(c *wsClient, reg *Registry) {
 		state := PlayerState{X: msg.X, Y: msg.Y, Angle: msg.Angle}
 		reg.setState(c.id, state)
 
-		fmt.Printf("[move]       id=%-16s  x=%7.3f  y=%7.3f  angle=%6.4f\n",
-			c.id, msg.X, msg.Y, msg.Angle)
+		fmt.Printf("[move]       id=%-16s  x=%7.3f  y=%7.3f  angle=%6.4f vx=%7.3f vy=%7.3f\n",
+			c.id, msg.X, msg.Y, msg.Angle, msg.Vx, msg.Vy)
 
 		snap := reg.snapshot()
 		entries := make([]playerEntry, 0, len(snap))
