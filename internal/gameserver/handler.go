@@ -70,10 +70,10 @@ func readerLoop(c *wsClient, reg *Registry) {
 		fmt.Printf("[move]       id=%-16s  x=%7.3f  y=%7.3f  angle=%6.4f\n",
 			c.id, msg.X, msg.Y, msg.Angle)
 
-		snap := reg.snapshot(c.id)
+		snap := reg.snapshot()
 		entries := make([]playerEntry, 0, len(snap))
 		for id, s := range snap {
-			entries = append(entries, playerEntry{ID: id, X: s.X, Y: s.Y, Angle: s.Angle})
+			entries = append(entries, playerEntry{ID: id, X: s.X, Y: s.Y, Angle: s.Angle, Vx: s.Vx, Vy: s.Vy})
 		}
 
 		reg.broadcast(stateMsg{
@@ -129,7 +129,7 @@ func WSHandler(reg *Registry) http.HandlerFunc {
 		reg.sendTo(c.id, initMsg{
 			Type:    "init",
 			ID:      c.id,
-			Players: reg.snapshot(c.id),
+			Players: reg.snapshot(),
 		})
 
 		go writerLoop(c)

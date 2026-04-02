@@ -152,21 +152,30 @@
 import { Player } from './js/player.js';
 import { init as initInput } from './js/input.js';
 import {
-  initRenderer, castRays,
+  initRenderer, castRays, present,
   pollGPUTimer, gpuTimerSupported,
   getGPUInfo, autoDetectResolution,
   setFov, setFogDist, getFov, getFogDist,
   loadTextureAtlas,
   setFloorMat, setCeilMat,
 } from './js/renderer.js';
-import { drawMinimap, clearMinimap, drawCrosshair,
-         drawDebugOverlay, clearDebugOverlay,
-         getDebugSections, setDebugSectionCollapsed } from './js/hud.js';
-import { getW, getH, setResolution } from './js/canvas.js';
-import { loadLevel, SPAWN, TEXTURES, FLOOR_MAT, CEIL_MAT, castCenterRay,
-         WALLS_COUNT, MAX_SEGMENTS, WORLD_W, WORLD_H } from './js/map.js';
 import {
-  connect   as netConnect,
+  initSpriteRenderer,
+  loadSpriteAtlas,
+  drawSprites
+} from './js/sprite_renderer.js';
+import {
+  drawMinimap, clearMinimap, drawCrosshair,
+  drawDebugOverlay, clearDebugOverlay,
+  getDebugSections, setDebugSectionCollapsed
+} from './js/hud.js';
+import { getW, getH, setResolution } from './js/canvas.js';
+import {
+  loadLevel, SPAWN, TEXTURES, FLOOR_MAT, CEIL_MAT, castCenterRay,
+  WALLS_COUNT, MAX_SEGMENTS, WORLD_W, WORLD_H
+} from './js/map.js';
+import {
+  connect as netConnect,
   sendMove,
   onPeerUpdate,
   onPeerLeave,
@@ -185,9 +194,19 @@ const player = new Player(SPAWN.x, SPAWN.y);
 player.angle = SPAWN.angle;
 initInput(player);
 initRenderer();
-await loadTextureAtlas(TEXTURES);
+initSpriteRenderer();
+await Promise.all([
+  loadTextureAtlas(TEXTURES),
+  loadSpriteAtlas('./resource/entity.png')
+]);
 setFloorMat(FLOOR_MAT);
 setCeilMat(CEIL_MAT);
+
+// ── Test Entity ──────────────────────────────────────────────────
+// A static NPC placed in front of the spawn point for visual testing.
+const testEntities = [
+  { pos: { x: SPAWN.x + 2, y: SPAWN.y }, angle: 0 }
+];
 
 // Auto-detect the best render resolution for this device.
 // Top-level await pauses module evaluation — the RAF loop below
@@ -228,6 +247,7 @@ netConnect(`http://${window.location.hostname}:9000`);
 //
 // onPeerLeave: logs to console so disconnections are visible during
 //   development.  Will also remove the peer sprite in Phase 2.
+// onPeerUpdate: extracts peer list from network.js for rendering.
 onPeerUpdate((id, state) => {
   void id; void state;
 });
@@ -443,6 +463,7 @@ window.__raycaster = {
   setMinimapVisible, // show / hide the minimap
   setFov,            // update the camera FOV (degrees)
   setFogDist,        // update the fog falloff distance uniform
+  setLookSensitivity: v => Player.setSensitivityMultiplier(Number(v)),
   // _setDebugSection — called by ui.js DOM overlay via toggleDebugSection.
   // Delegates to setDebugSectionCollapsed imported from hud.js.
   _setDebugSection: setDebugSectionCollapsed,
@@ -456,9 +477,10 @@ window.__debugSections = getDebugSections();
 
 // ── Render ───────────────────────────────────────────────────────
 function render() {
-  // Path A: poll the GPU query submitted by last frame's castRays().
-  // Must happen before this frame's castRays() so we are reading
-  // the previous query while the new one is being written.
+  // ── 1. Raycasting Pass ────────────────────────────────────────
+  // Poll the GPU query submitted by last frame's castRays().
+  // Must happen before this frame's castRays() so we read the previous 
+  // query while the new one is being written.
   const pollMs = pollGPUTimer();
   if (pollMs !== null) _recordGPU(pollMs);
 
@@ -470,53 +492,81 @@ function render() {
   const fenceMs = castRays(player, _debugMode >= 2);
   if (fenceMs !== null) _recordGPU(fenceMs);
 
-  // Crosshair — drawn every frame at the screen centre, above the 3D
-  // view but below minimap and debug panels.
+  // ── 2. Sprite Pass ────────────────────────────────────────────
+  // Combine static NPCs and network peers for a unified depth-sorted pass.
+  // Note: Using .concat() is often faster than spread + push for large arrays.
+  const activeEntities = testEntities.concat(
+    [...getPeers().values()]
+      .map(peer => ({
+      pos: peer.pos,
+      angle: peer.angle,
+    }))
+  );
+
+  // Z-Sorting (Descending: Farthest first)
+  // Cache player coords outside the loop to avoid redundant lookups.
+  const px = player.pos.x;
+  const py = player.pos.y;
+
+  activeEntities.sort((a, b) => {
+    // Optional chaining prevents crashes if an entity is missing a position
+    const da = ((a.pos?.x ?? 0) - px) ** 2 + ((a.pos?.y ?? 0) - py) ** 2;
+    const db = ((b.pos?.x ?? 0) - px) ** 2 + ((b.pos?.y ?? 0) - py) ** 2;
+    return db - da;
+  });
+
+  drawSprites(player, activeEntities, getFogDist());
+
+  // ── 3. Final Presentation & UI ────────────────────────────────
+  present();
+
+  // Crosshair — drawn above the 3D view but below minimap/debug panels.
   drawCrosshair();
 
-  // minimap — dirty-region clear is handled inside drawMinimap()
+  // Minimap — dirty-region clear is handled inside drawMinimap()
   let t0 = performance.now();
-  if (_minimapVisible) drawMinimap(player);
+  if (_minimapVisible) drawMinimap(player,activeEntities);
   _record('minimap', performance.now() - t0);
 
-  // debug overlay — build debugData and call drawDebugOverlay.
+  // ── 4. Debug Overlay ──────────────────────────────────────────
   // rafMs and displayPeriod are in base debugData (used by the always-
-  // visible raf/vsync/pipeline rows).  timings is populated only in
+  // visible raf/vsync/pipeline rows). timings is populated only in
   // verbose mode and carries the per-component breakdown rows.
   if (_debugMode >= 1) {
-    const gpuMs   = _sums.castRaysGPU / RING_SIZE;
+    const peers = getPeers(); // Cache to avoid calling the getter multiple times
+    const gpuMs = _sums.castRaysGPU / RING_SIZE;
     const frameMs = _sums.frameMs / RING_SIZE;
 
     // Per-component breakdown — mode 2 only.
     const timings = _debugMode >= 2 ? {
-      update:        _sums.update / RING_SIZE,
-      minimap:       _sums.minimap / RING_SIZE,
-      debug:         _sums.debug / RING_SIZE,
+      update: _sums.update / RING_SIZE,
+      minimap: _sums.minimap / RING_SIZE,
+      debug: _sums.debug / RING_SIZE,
       castRaysFence: !gpuTimerSupported(),
-      frameBudget:   1000 / 60,
+      frameBudget: 1000 / 60,
     } : null;
 
     const debugData = {
       // Performance
       frameMs,
       gpuMs,
-      rafMs:        _sums.rafInterval / RING_SIZE,
+      rafMs: _sums.rafInterval / RING_SIZE,
       displayPeriod: detAvgMs,
       // Rendering
-      renderW:      getW(),
-      renderH:      getH(),
-      fov:          getFov(),
-      fogDist:      getFogDist(),
-      gpuInfo:      getGPUInfo(),
-      wallsCount:   WALLS_COUNT,
-      maxSegments:  MAX_SEGMENTS,
+      renderW: getW(),
+      renderH: getH(),
+      fov: getFov(),
+      fogDist: getFogDist(),
+      gpuInfo: getGPUInfo(),
+      wallsCount: WALLS_COUNT,
+      maxSegments: MAX_SEGMENTS,
       textureCount: TEXTURES.length,
-      worldW:       WORLD_W,
-      worldH:       WORLD_H,
+      worldW: WORLD_W,
+      worldH: WORLD_H,
       // Network
       netConnected: isConnected(),
-      selfId:       getSelfId(),
-      peerCount:    getPeers().size,
+      selfId: getSelfId(),
+      peerCount: peers.size, // Use cached value
       // Verbose breakdown (mode 2 only)
       timings,
     };
@@ -527,7 +577,6 @@ function render() {
     _record('debug', performance.now() - t0);
   }
 }
-
 // ── Engine loop ──────────────────────────────────────────────────
 let _prevTs = 0;   // rAF timestamp of the previous frame
 
@@ -567,7 +616,7 @@ function engine(ts) {
   // committed post-physics position, and BEFORE render() so the
   // frame cost includes the emit overhead in frameMs.
   // Throttling (20 Hz) and dead-zone filtering live in network.js.
-  sendMove(player.pos.x, player.pos.y, player.angle);
+  sendMove(player);
 
   render();
 
