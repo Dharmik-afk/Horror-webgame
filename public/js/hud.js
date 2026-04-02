@@ -231,7 +231,7 @@ export function clearMinimap() {
 // Peer positions are NOT drawn here yet — that is Phase 2.
 // When implemented, Phase 2 will call getPeers() from network.js
 // and render a smaller dot per peer within this same dirty region.
-export function drawMinimap(player) {
+export function drawMinimap(player, entities) {
   const scale = getHudW() / 800;
   const MM_TILE = Math.round(10 * scale);
   const MM_PAD = Math.round(8 * scale);
@@ -294,6 +294,15 @@ export function drawMinimap(player) {
   hudCtx.beginPath();
   hudCtx.arc(pdx, pdy, 3 * scale, 0, Math.PI * 2);
   hudCtx.fill();
+  hudCtx.fillStyle = '#5555ff'
+  entities.forEach((entity) =>
+  {
+    const edx = MM_X + entity.pos.x * MM_TILE;
+    const edy = MM_Y + entity.pos.y * MM_TILE;
+    hudCtx.beginPath()
+    hudCtx.arc(edx,edy, 2 * scale, 0 , Math.PI * 2);
+    hudCtx.fill()
+  })
 }
 
 // ── clearDebug ────────────────────────────────────────────────────

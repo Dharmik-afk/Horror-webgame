@@ -1,5 +1,5 @@
 import { gl } from './canvas.js';
-import { getDistTex, getFbo } from './renderer.js';
+import { getDistTex, getFbo ,  getFovHalfTan } from './renderer.js';
 
 // ── Sprite Shader Source ──────────────────────────────────────────
 const VS_SRC = /* glsl */`#version 300 es
@@ -165,7 +165,12 @@ export async function loadSpriteAtlas(path) {
  * @param {number} fogDist
  */
 export function drawSprites(player, entities, fogDist) {
-    if (!entities.length) return;
+    if (!entities.length) 
+    {
+      console.info("skiped draw call")
+      return;
+    }
+    const fovHalfTan = getFovHalfTan();
 
     gl.useProgram(_program);
     gl.bindVertexArray(_vao);
@@ -173,7 +178,7 @@ export function drawSprites(player, entities, fogDist) {
     // Environment uniforms
     gl.uniform2f(_uPlayerPos, player.pos.x, player.pos.y);
     gl.uniform2f(_uDir, player.sinA, -player.cosA);
-    const fovHalfTan = Math.tan((60 / 2) * Math.PI / 180); // FIXME: get from renderer
+    //const fovHalfTan = Math.tan((60 / 2) * Math.PI / 180); // FIXME: get from renderer
     gl.uniform2f(_uPlane, player.cosA * fovHalfTan, player.sinA * fovHalfTan);
     gl.uniform1f(_uH, gl.drawingBufferHeight);
     gl.uniform1f(_uFogDist, fogDist);

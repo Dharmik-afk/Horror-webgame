@@ -69,14 +69,12 @@ func (r *Registry) setState(id string, s PlayerState) {
 	r.states[id] = s
 }
 
-func (r *Registry) snapshot(excludeID string) map[string]PlayerState {
+func (r *Registry) snapshot() map[string]PlayerState {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make(map[string]PlayerState, len(r.states))
 	for id, s := range r.states {
-		if id != excludeID {
-			out[id] = s
-		}
+		out[id] = s
 	}
 	return out
 }

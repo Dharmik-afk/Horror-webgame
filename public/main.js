@@ -477,9 +477,10 @@ window.__debugSections = getDebugSections();
 
 // ── Render ───────────────────────────────────────────────────────
 function render() {
-  // Path A: poll the GPU query submitted by last frame's castRays().
-  // Must happen before this frame's castRays() so we are reading
-  // the previous query while the new one is being written.
+  // ── 1. Raycasting Pass ────────────────────────────────────────
+  // Poll the GPU query submitted by last frame's castRays().
+  // Must happen before this frame's castRays() so we read the previous 
+  // query while the new one is being written.
   const pollMs = pollGPUTimer();
   if (pollMs !== null) _recordGPU(pollMs);
 
@@ -491,43 +492,48 @@ function render() {
   const fenceMs = castRays(player, _debugMode >= 2);
   if (fenceMs !== null) _recordGPU(fenceMs);
 
-  // ── Sprite Pass ────────────────────────────────────────────────
-  // 2. Sprite Render Pass (Billboards)
+  // ── 2. Sprite Pass ────────────────────────────────────────────
   // Combine static NPCs and network peers for a unified depth-sorted pass.
-  const activeEntities = [...testEntities];
-  for (const peer of getPeers().values()) {
-    activeEntities.push({
+  // Note: Using .concat() is often faster than spread + push for large arrays.
+  const activeEntities = testEntities.concat(
+    [...getPeers().values()]
+      .map(peer => ({
       pos: peer.pos,
       angle: peer.angle,
-    });
-  }
+    }))
+  );
 
   // Z-Sorting (Descending: Farthest first)
+  // Cache player coords outside the loop to avoid redundant lookups.
+  const px = player.pos.x;
+  const py = player.pos.y;
+
   activeEntities.sort((a, b) => {
-    const da = (a.pos.x - player.pos.x) ** 2 + (a.pos.y - player.pos.y) ** 2;
-    const db = (b.pos.x - player.pos.x) ** 2 + (b.pos.y - player.pos.y) ** 2;
+    // Optional chaining prevents crashes if an entity is missing a position
+    const da = ((a.pos?.x ?? 0) - px) ** 2 + ((a.pos?.y ?? 0) - py) ** 2;
+    const db = ((b.pos?.x ?? 0) - px) ** 2 + ((b.pos?.y ?? 0) - py) ** 2;
     return db - da;
   });
 
   drawSprites(player, activeEntities, getFogDist());
 
-  // 3. Final Presentation (Composite to screen)
+  // ── 3. Final Presentation & UI ────────────────────────────────
   present();
 
-  // Crosshair — drawn every frame at the screen centre, above the 3D
-  // view but below minimap and debug panels.
+  // Crosshair — drawn above the 3D view but below minimap/debug panels.
   drawCrosshair();
 
-  // minimap — dirty-region clear is handled inside drawMinimap()
+  // Minimap — dirty-region clear is handled inside drawMinimap()
   let t0 = performance.now();
-  if (_minimapVisible) drawMinimap(player);
+  if (_minimapVisible) drawMinimap(player,activeEntities);
   _record('minimap', performance.now() - t0);
 
-  // debug overlay — build debugData and call drawDebugOverlay.
+  // ── 4. Debug Overlay ──────────────────────────────────────────
   // rafMs and displayPeriod are in base debugData (used by the always-
-  // visible raf/vsync/pipeline rows).  timings is populated only in
+  // visible raf/vsync/pipeline rows). timings is populated only in
   // verbose mode and carries the per-component breakdown rows.
   if (_debugMode >= 1) {
+    const peers = getPeers(); // Cache to avoid calling the getter multiple times
     const gpuMs = _sums.castRaysGPU / RING_SIZE;
     const frameMs = _sums.frameMs / RING_SIZE;
 
@@ -560,7 +566,7 @@ function render() {
       // Network
       netConnected: isConnected(),
       selfId: getSelfId(),
-      peerCount: getPeers().size,
+      peerCount: peers.size, // Use cached value
       // Verbose breakdown (mode 2 only)
       timings,
     };
@@ -571,7 +577,6 @@ function render() {
     _record('debug', performance.now() - t0);
   }
 }
-
 // ── Engine loop ──────────────────────────────────────────────────
 let _prevTs = 0;   // rAF timestamp of the previous frame
 
@@ -611,7 +616,7 @@ function engine(ts) {
   // committed post-physics position, and BEFORE render() so the
   // frame cost includes the emit overhead in frameMs.
   // Throttling (20 Hz) and dead-zone filtering live in network.js.
-  sendMove(player.pos.x, player.pos.y, player.angle);
+  sendMove(player);
 
   render();
 

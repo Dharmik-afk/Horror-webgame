@@ -188,7 +188,9 @@ export function setFov(deg) {
 export function getFov() {
   return _fovDeg;
 }
-
+export function getFovHalfTan() {
+  return _fovHalfTan;
+}
 // ── setFogDist(dist) / getFogDist() ──────────────────────────────
 // setFogDist sets the fog falloff distance uniform.  dist is a
 // world-space scalar: walls at this distance are fully fogged.

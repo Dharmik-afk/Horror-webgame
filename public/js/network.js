@@ -105,7 +105,12 @@ function _handleMessage(raw) {
       console.info('[network.js] self:init  id =', _selfId);
 
       for (const [id, state] of Object.entries(msg.players ?? {})) {
-        _peers.set(id, state);
+        const playerstate = {
+          pos   : { x: state.x, y: state.y },
+          angle : state.angle, 
+          id    : id 
+        }
+        _peers.set(id, playerstate);
         for (const cb of _peerUpdateCbs) cb(id, state);
       }
       break;
@@ -117,11 +122,16 @@ function _handleMessage(raw) {
       // via explicit "leave" messages — do not prune missing peers here, as
       // the array only covers the peers that have sent at least one move.
       for (const entry of msg.players ?? []) {
-        const state = { x: entry.x, y: entry.y, angle: entry.angle, id : entry.id };
+        const state = {
+          pos   : { x: entry.x, y: entry.y },
+          angle : entry.angle, 
+          id    : entry.id
+        };
         if (state.id === _selfId) {
           continue
         }
         _peers.set(entry.id, state);
+
         for (const cb of _peerUpdateCbs) cb(entry.id, state);
       }
       break;
@@ -212,9 +222,11 @@ export function connect(serverUrl) {
  * @param {number} y
  * @param {number} angle  radians
  */
-export function sendMove(x, y, angle) {
+export function sendMove(player) {
   if (!_connected || !_socket) return;
-
+  const x = player.pos.x;
+  const y = player.pos.y;
+  const angle = player.angle
   const now = performance.now();
   if (now - _lastSendTime < SEND_INTERVAL_MS) return;
 
@@ -231,11 +243,16 @@ export function sendMove(x, y, angle) {
   _lastSentY     = y;
   _lastSentAngle = angle;
 
-  _socket.send(JSON.stringify({ type: 'move', x, y, angle }));
+  _socket.send(JSON.stringify({
+    type: 'move',
+    x,
+    y,
+    angle 
+  }));
 }
 /**
  * Returns the live peers Map.  Do NOT mutate the returned reference.
- * @returns {Map<string, {x:number, y:number, angle:number}>}
+ * @returns {Map<string,{ pos : {x:number, y:number}, angle:number}>}
  */
 export function getPeers() {
   return _peers;
@@ -244,9 +261,10 @@ export function getPeers() {
 /**
  * Register a callback fired when a peer joins or updates position.
  * Also fires once per existing peer when self:init is received.
- * @param {(id: string, state: {x,y,angle}) => void} cb
+ * @param {(id: string, state: {{x,y},angle}) => void} cb
  */
 export function onPeerUpdate(cb) {
+  console.log("update received")
   _peerUpdateCbs.push(cb);
 }
 
