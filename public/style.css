@@ -23,3 +23,6 @@
 
 /* body.is-fullscreen overrides       */
 @import url('css/fullscreen.css');
+
+/* WebSocket latency indicator        */
+@import url('css/network-hud.css');

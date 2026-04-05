@@ -377,7 +377,7 @@ export async function loadLevel(url) {
   // missingtexturepng.png is always the last slot (deduped if the level
   // already lists it).  Must be assigned before _entryMaterial() is
   // called so the fallback index is valid during geometry parsing.
-  const MISSING_PATH = 'resource/missingtexturepng.png';
+  const MISSING_PATH = 'resource/textures/ui/missingtexturepng.png';
   const base         = (meta.textures ?? []).filter(p => p !== MISSING_PATH);
   TEXTURES           = [...base, MISSING_PATH];
   MISSING_TEX_ID     = TEXTURES.length - 1;

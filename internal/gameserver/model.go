@@ -15,7 +15,22 @@ func newID() string {
 	return hex.EncodeToString(b)
 }
 
-// ── Wire types ────────────────────────────────────────────────────
+// ── Wire types (Common) ──────────────────────────────────────────
+
+// wsMessage is the minimal structure required to identify the type
+// of any incoming WebSocket message.
+type wsMessage struct {
+	Type string `json:"type"`
+	ID   int    `json:"id,omitempty"`
+}
+
+// pingPongMsg is used for latency measurement.
+type pingPongMsg struct {
+	Type string `json:"type"`
+	ID   int    `json:"id"`
+}
+
+// ── Wire types (Specific) ────────────────────────────────────────
 
 // PlayerState holds the authoritative position of one connected player.
 type PlayerState struct {

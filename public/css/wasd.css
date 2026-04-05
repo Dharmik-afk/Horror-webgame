@@ -16,6 +16,12 @@
   margin-right: auto;
 }
 
+/* On desktop, hide the pad unless specifically requested (e.g. for accessibility)
+   The .no-touch class is added by input.js if touch support is not detected. */
+body.no-touch .wasd-pad {
+  display: none;
+}
+
 .key {
   position: relative;
   border-radius: 12px;

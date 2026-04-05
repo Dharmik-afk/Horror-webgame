@@ -72,7 +72,9 @@
     UI.slider('Look Sensitivity', 'sens', {
       min: 1, max: 20, default: Number(localStorage.getItem('cfg-look-sensitivity') ?? 10),
       onChange: v => {
-        window.__raycaster?.setLookSensitivity(v);
+        const normalized = v / 10;
+        window.__raycaster?.setLookSensitivity(normalized);
+        window.__input?.setLookSensitivity(normalized);
         localStorage.setItem('cfg-look-sensitivity', v);
       }
     });
@@ -131,16 +133,16 @@
 
   // ── CONTROLS ────────────────────────────────────────────────────────
   UI.section('Controls', ICONS.controls, 'controls', () => {
-    // DUMMY: no JS binding — toggle state is not read anywhere
-    UI.toggle('Touch Controls (dummy)', 'touch', {
-      default: true,
-      hint: 'On-screen WASD pad'
+    UI.toggle('Touch Controls', 'touch', {
+      default: window.__input?.isTouch() ?? true,
+      hint: 'On-screen WASD pad',
+      onChange: v => window.__input?.setWasdPadVisible(v)
     });
 
-    // DUMMY: no JS binding — toggle state is not read anywhere
-    UI.toggle('Pointer Lock (dummy)', 'pointerLock', {
+    UI.toggle('Pointer Lock', 'pointerLock', {
       default: true,
-      hint: 'Lock cursor for mouse look'
+      hint: 'Lock cursor for mouse look',
+      onChange: v => window.__input?.setPointerLockEnabled(v)
     });
   });
 

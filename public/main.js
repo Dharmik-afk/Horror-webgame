@@ -182,7 +182,47 @@ import {
   getSelfId,
   getPeers,
   isConnected,
+  getLatency,
+  onLatencyUpdate,
+  getStatus,
+  onStatusUpdate,
 } from './js/network.js';
+
+// ── Latency HUD ──────────────────────────────────────────────────
+const latencyEl = document.getElementById('latency-hud');
+
+function _updateHUDState() {
+  if (!latencyEl) return;
+  const status = getStatus();
+  const latency = getLatency();
+
+  latencyEl.classList.remove('good', 'fair', 'poor', 'offline', 'connecting', 'reconnecting');
+  latencyEl.classList.add(status);
+
+  if (status === 'connected') {
+    if (latency === 0) {
+      latencyEl.innerText = 'Waiting...';
+      latencyEl.classList.add('poor');
+    } else {
+      const val = Math.round(latency);
+      latencyEl.innerText = `${val} ms`;
+      if (latency < 100) latencyEl.classList.add('good');
+      else if (latency < 200) latencyEl.classList.add('fair');
+      else latencyEl.classList.add('poor');
+    }
+  } else if (status === 'connecting') {
+    latencyEl.innerText = 'Connecting...';
+  } else if (status === 'reconnecting') {
+    latencyEl.innerText = 'Reconnecting...';
+  } else {
+    latencyEl.innerText = 'Offline';
+  }
+}
+
+onLatencyUpdate(_updateHUDState);
+onStatusUpdate(_updateHUDState);
+// Initial state
+_updateHUDState();
 
 // ── Bootstrap ────────────────────────────────────────────────────
 // Load level first — populates WALLS_FLAT, WALLS_COUNT, and SPAWN
@@ -192,12 +232,14 @@ await loadLevel('./levels/level-01.json');
 
 const player = new Player(SPAWN.x, SPAWN.y);
 player.angle = SPAWN.angle;
-initInput(player);
+initInput(player, {
+  lookSensitivity: (Number(localStorage.getItem('cfg-look-sensitivity') ?? 10)) / 10
+});
 initRenderer();
 initSpriteRenderer();
 await Promise.all([
   loadTextureAtlas(TEXTURES),
-  loadSpriteAtlas('./resource/entity.png')
+  loadSpriteAtlas('./resource/sprites/enemies/entity.png')
 ]);
 setFloorMat(FLOOR_MAT);
 setCeilMat(CEIL_MAT);
@@ -239,22 +281,48 @@ window._showStart?.();
 // frames that fire before the handshake completes are safely skipped.
 netConnect(`http://${window.location.hostname}:9000`);
 
-// Phase 1 peer callbacks — wired but only partially active.
-//
-// onPeerUpdate: intentional no-op.  Detailed position logging is
-//   handled inside network.js at the WebSocket event level.  This hook
-//   will drive renderer sprite updates in Phase 2.
-//
-// onPeerLeave: logs to console so disconnections are visible during
-//   development.  Will also remove the peer sprite in Phase 2.
-// onPeerUpdate: extracts peer list from network.js for rendering.
+// ── Peer Management ────────────────────────────────────────────────
+const _peerRenderStates = new Map(); // id -> { pos: {x,y}, velocity: {x,y}, angle, targetPos: {x,y} }
+
 onPeerUpdate((id, state) => {
-  void id; void state;
+  let p = _peerRenderStates.get(id);
+  if (!p) {
+    p = {
+      pos: { x: state.pos.x, y: state.pos.y },
+      velocity: { x: state.velocity.x, y: state.velocity.y },
+      angle: state.angle,
+      targetPos: { x: state.pos.x, y: state.pos.y }
+    };
+    _peerRenderStates.set(id, p);
+  } else {
+    p.targetPos.x = state.pos.x;
+    p.targetPos.y = state.pos.y;
+    p.velocity.x = state.velocity.x;
+    p.velocity.y = state.velocity.y;
+    p.angle = state.angle;
+  }
 });
 
 onPeerLeave((id) => {
   console.info('[main.js] peer left — removing from scene:', id);
+  _peerRenderStates.delete(id);
 });
+
+function updatePeers(dt) {
+  for (const p of _peerRenderStates.values()) {
+    // 1. Predict position based on velocity
+    // Velocity is in tiles per 60Hz frame, so we multiply by dt * 60.
+    p.pos.x += p.velocity.x * dt * 60;
+    p.pos.y += p.velocity.y * dt * 60;
+
+    // 2. Smoothly interpolate towards the target position from the server
+    // This handles both corrections and the case where the targetPos is 
+    // "behind" our prediction due to latency.
+    const lerpFactor = 0.15; // Tuning parameter for smoothing vs. accuracy
+    p.pos.x += (p.targetPos.x - p.pos.x) * lerpFactor;
+    p.pos.y += (p.targetPos.y - p.pos.y) * lerpFactor;
+  }
+}
 
 // ── FPS counter state ────────────────────────────────────────────
 let fps = 0;
@@ -496,7 +564,7 @@ function render() {
   // Combine static NPCs and network peers for a unified depth-sorted pass.
   // Note: Using .concat() is often faster than spread + push for large arrays.
   const activeEntities = testEntities.concat(
-    [...getPeers().values()]
+    [..._peerRenderStates.values()]
       .map(peer => ({
       pos: peer.pos,
       angle: peer.angle,
@@ -533,7 +601,6 @@ function render() {
   // visible raf/vsync/pipeline rows). timings is populated only in
   // verbose mode and carries the per-component breakdown rows.
   if (_debugMode >= 1) {
-    const peers = getPeers(); // Cache to avoid calling the getter multiple times
     const gpuMs = _sums.castRaysGPU / RING_SIZE;
     const frameMs = _sums.frameMs / RING_SIZE;
 
@@ -566,7 +633,8 @@ function render() {
       // Network
       netConnected: isConnected(),
       selfId: getSelfId(),
-      peerCount: peers.size, // Use cached value
+      peerCount: _peerRenderStates.size,
+      latency: getLatency(),
       // Verbose breakdown (mode 2 only)
       timings,
     };
@@ -609,6 +677,7 @@ function engine(ts) {
   // player.update — CPU timed
   const t0 = performance.now();
   player.update(dt);
+  updatePeers(dt);
   _record('update', performance.now() - t0);
 
   // ── Network send ─────────────────────────────────────────────

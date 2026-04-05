@@ -57,16 +57,26 @@ func readerLoop(c *wsClient, reg *Registry) {
 		}
 		c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
+		var base wsMessage
+		if err := json.Unmarshal(raw, &base); err != nil {
+			continue // Ignore malformed JSON
+		}
+
+		// Intercept ping messages — reply immediately with a pong.
+		if base.Type == "ping" {
+			pong := pingPongMsg{Type: "pong", ID: base.ID}
+			data, _ := json.Marshal(pong)
+			c.send <- data
+			continue
+		}
+
 		var msg moveMsg
 		if err := json.Unmarshal(raw, &msg); err != nil || msg.Type != "move" {
 			continue
 		}
 
-		state := PlayerState{X: msg.X, Y: msg.Y, Angle: msg.Angle}
+		state := PlayerState{X: msg.X, Y: msg.Y, Angle: msg.Angle, Vx: msg.Vx, Vy: msg.Vy}
 		reg.setState(c.id, state)
-
-		Logger.Printf("[move]       id=%-16s  x=%7.3f  y=%7.3f  angle=%6.4f vx=%7.3f vy=%7.3f\n",
-			c.id, msg.X, msg.Y, msg.Angle, msg.Vx, msg.Vy)
 
 		snap := reg.snapshot()
 		entries := make([]playerEntry, 0, len(snap))

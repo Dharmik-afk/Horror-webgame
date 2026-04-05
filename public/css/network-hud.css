@@ -1,0 +1,47 @@
+/* ── css/network-hud.css ────────────────────────────────────────── */
+
+#latency-hud {
+  position: fixed;
+  top: 10px;
+  right: 130px; /* To the left of the settings/fullscreen buttons */
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px 8px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: color 0.3s ease;
+}
+
+#latency-hud::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  border-radius: 50%;
+  box-shadow: 0 0 5px currentColor;
+}
+
+#latency-hud.good { color: #a8e6a0; }    /* Green */
+#latency-hud.fair { color: #ffe082; }    /* Amber */
+#latency-hud.poor { color: #ff6b6b; }    /* Red */
+#latency-hud.offline { color: #ff6b6b; opacity: 0.8; }
+#latency-hud.connecting,
+#latency-hud.reconnecting { 
+  color: #ffe082;
+  animation: hud-pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes hud-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(0.98); }
+  50% { opacity: 1; transform: scale(1); }
+}

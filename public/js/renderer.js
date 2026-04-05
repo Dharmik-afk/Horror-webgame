@@ -918,7 +918,7 @@ export function setCeilMat(mat) {
 //  texture bottom.  Flipping on upload makes wallV=0 (bottom of the
 //  wall strip) map to the bottom row of the image — correct orientation.
 //
-//  @param {string[]} paths  e.g. ['resource/doom-wall.png', ...]
+//  @param {string[]} paths  e.g. ['resource/textures/walls/doom-wall.png', ...]
 //  @returns {Promise<void>}
 export async function loadTextureAtlas(paths) {
   if (!paths || paths.length === 0) {

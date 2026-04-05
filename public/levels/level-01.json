@@ -10,12 +10,12 @@
       "angle": 0.0
     },
     "textures": [
-      "resource/doom-wall.png",
-      "resource/og-metal-wall.png",
-      "resource/granite1.png",
-      "resource/wall2.jpg",
-      "resource/floor.png",
-      "resource/ceiling-2.png"
+      "resource/textures/walls/doom-wall.png",
+      "resource/textures/walls/og-metal-wall.png",
+      "resource/textures/walls/granite1.png",
+      "resource/textures/walls/wall2.jpg",
+      "resource/textures/flats/floor.png",
+      "resource/textures/flats/ceiling-2.png"
     ]
   },
   "rooms": [

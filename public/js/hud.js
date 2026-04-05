@@ -1083,7 +1083,10 @@ export function drawDebugOverlay(player, fps, debugData, lookAt) {
     cy += rowH;
     row('peers', `${debugData.peerCount}`, cy);
     cy += rowH;
-    row('ping', '—', cy, 'rgba(200, 210, 255, 0.35)');
+    const lat = debugData.latency;
+    const latS = lat > 0 ? `${Math.round(lat)} ms` : '—';
+    const latC = lat < 100 ? '#a8e6a0' : lat < 200 ? '#ffe082' : '#ff6b6b';
+    row('ping', latS, cy, debugData.netConnected ? latC : 'rgba(200, 210, 255, 0.35)');
   }
 
   // ── Hotkey hint ───────────────────────────────────────────────────

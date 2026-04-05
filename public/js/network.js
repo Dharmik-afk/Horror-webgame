@@ -51,6 +51,92 @@
 //  Retry counter resets on a successful open.
 // ─────────────────────────────────────────────
 
+// ── Latency Monitor ───────────────────────────────────────────────
+
+const PING_TIMEOUT_MS = 2000;
+
+class WebSocketLatencyMonitor {
+  constructor(socket) {
+    this.socket = socket;
+    this.pingId = 0;
+    this.pings  = new Map(); // id → sendTime
+    this.timer  = null;
+    this.latency = 0;
+    this.onLatencyUpdate = null;
+  }
+
+  start(intervalMs = 1000) {
+    this.stop();
+    this.timer = setInterval(() => this.ping(), intervalMs);
+    // Initial ping
+    this.ping();
+  }
+
+  stop() {
+    if (this.timer) clearInterval(this.timer);
+    this.pings.clear();
+  }
+
+  ping() {
+    if (this.socket.readyState !== WebSocket.OPEN) return;
+    
+    // Aggressive stall detection: if a ping is pending longer than its own timeout,
+    // we don't necessarily wait for the Map to fill up. 
+    // If we already have 2 pending, we are definitely stalling (at 1s interval).
+    if (this.pings.size >= 2) {
+      this.latency = 0;
+      this._fireLatency(0);
+      return;
+    }
+
+    const id = ++this.pingId;
+    this.pings.set(id, performance.now());
+    this.socket.send(JSON.stringify({ type: 'ping', id }));
+
+    // Timeout per individual ping
+    setTimeout(() => {
+      if (this.pings.has(id)) {
+        this.pings.delete(id);
+        // If all pending pings are now gone (timed out), we are officially stalled.
+        if (this.pings.size === 0) {
+          this.latency = 0;
+          this._fireLatency(0);
+        }
+      }
+    }, PING_TIMEOUT_MS);
+  }
+
+  handlePong(id) {
+    const sendTime = this.pings.get(id);
+    if (sendTime === undefined) return;
+    this.pings.delete(id);
+    
+    const calculated = performance.now() - sendTime;
+    
+    // Stricter filtering: if latency > 2s, it's a "ghost" of a stalled connection.
+    // Discard it to prevent UI spikes.
+    if (calculated > PING_TIMEOUT_MS) {
+      if (this.pings.size === 0) {
+        this.latency = 0;
+        this._fireLatency(0);
+      }
+      return;
+    }
+
+    this.latency = calculated;
+    this._fireLatency(this.latency);
+  }
+
+  _fireLatency(val) {
+    if (this.onLatencyUpdate) {
+      try { this.onLatencyUpdate(val); } 
+      catch (e) { console.error('[network.js] Latency callback error:', e); }
+    }
+  }
+
+  getLatency() { return this.latency; }
+}
+
 // ── Internal state ────────────────────────────────────────────────
 let _socket     = null;       // WebSocket | null
 let _selfId     = null;       // string | null
@@ -60,6 +146,44 @@ let _retries    = 0;
 const _peers           = new Map();   // id → { x, y, angle }
 const _peerUpdateCbs   = [];
 const _peerLeaveCbs    = [];
+
+// ── Latency state ─────────────────────────────────────────────────
+let _latencyMonitor    = null;
+let _currentLatency     = 0;
+const _latencyCbs       = [];
+
+// ── Network Status ────────────────────────────────────────────────
+// Statuses: 'offline', 'connecting', 'connected', 'reconnecting'
+let _status            = 'offline';
+const _statusCbs       = [];
+
+function _setStatus(newStatus) {
+  if (_status === newStatus) return;
+  _status = newStatus;
+  
+  // If not fully connected, reset the latency so it doesn't get stuck.
+  if (_status !== 'connected') {
+    _currentLatency = 0;
+    _broadcastLatency(0);
+  }
+
+  console.info(`[network.js] Status: ${newStatus}`);
+  _broadcastStatus(newStatus);
+}
+
+function _broadcastLatency(val) {
+  for (const cb of _latencyCbs) {
+    try { cb(val); } 
+    catch (e) { console.error('[network.js] Latency consumer error:', e); }
+  }
+}
+
+function _broadcastStatus(status) {
+  for (const cb of _statusCbs) {
+    try { cb(status); } 
+    catch (e) { console.error('[network.js] Status consumer error:', e); }
+  }
+}
 
 // ── Throttle / dead-zone state ────────────────────────────────────
 const SEND_INTERVAL_MS = 50;          // 20 Hz cap
@@ -78,11 +202,13 @@ const BASE_DELAY_MS = 1000;
 function _scheduleReconnect() {
   if (_retries >= MAX_RETRIES) {
     console.warn('[network.js] Max reconnection attempts reached — staying offline.');
+    _setStatus('offline');
     return;
   }
   const delay = BASE_DELAY_MS * Math.pow(2, _retries);
   _retries++;
   console.info(`[network.js] Reconnecting in ${delay} ms (attempt ${_retries}/${MAX_RETRIES})…`);
+  _setStatus('reconnecting');
   setTimeout(() => _open(_serverUrl), delay);
 }
 
@@ -96,19 +222,27 @@ function _handleMessage(raw) {
     return;
   }
 
+  // Intercept pong messages for latency monitoring.
+  if (msg.type === 'pong' && _latencyMonitor) {
+    _latencyMonitor.handlePong(msg.id);
+    return;
+  }
+
   switch (msg.type) {
 
     case 'init': {
       // msg.id — own socket ID assigned by server.
-      // msg.players — map { "<id>": {x,y,angle} } of existing peers (self excluded).
+      // msg.players — map { "<id>": {x,y,angle,vx,vy} } of existing peers (self excluded).
       _selfId = msg.id;
       console.info('[network.js] self:init  id =', _selfId);
+      _setStatus('connected');
 
       for (const [id, state] of Object.entries(msg.players ?? {})) {
         const playerstate = {
-          pos   : { x: state.x, y: state.y },
-          angle : state.angle, 
-          id    : id 
+          pos      : { x: state.x, y: state.y },
+          angle    : state.angle, 
+          velocity : { x: state.vx ?? 0, y: state.vy ?? 0 },
+          id       : id 
         }
         _peers.set(id, playerstate);
         for (const cb of _peerUpdateCbs) cb(id, state);
@@ -117,15 +251,16 @@ function _handleMessage(raw) {
     }
 
     case 'state': {
-      // msg.players — array [{id,x,y,angle}] of ALL peers excluding the sender.
+      // msg.players — array [{id,x,y,angle,vx,vy}] of ALL peers excluding the sender.
       // Treat each entry as a join-or-update.  The server handles departures
       // via explicit "leave" messages — do not prune missing peers here, as
       // the array only covers the peers that have sent at least one move.
       for (const entry of msg.players ?? []) {
         const state = {
-          pos   : { x: entry.x, y: entry.y },
-          angle : entry.angle, 
-          id    : entry.id
+          pos      : { x: entry.x, y: entry.y },
+          angle    : entry.angle, 
+          velocity : { x: entry.vx ?? 0, y: entry.vy ?? 0 },
+          id       : entry.id
         };
         if (state.id === _selfId) {
           continue
@@ -162,6 +297,7 @@ function _open(serverUrl) {
   const wsUrl = serverUrl.replace(/^http/, 'ws').replace(/\/?$/, '/ws');
 
   console.info('[network.js] Connecting to', wsUrl);
+  _setStatus('connecting');
 
   const sock = new WebSocket(wsUrl);
 
@@ -170,6 +306,14 @@ function _open(serverUrl) {
     _retries   = 0;
     _socket    = sock;
     console.info('[network.js] Connected.');
+
+    // Start latency monitor
+    _latencyMonitor = new WebSocketLatencyMonitor(sock);
+    _latencyMonitor.onLatencyUpdate = (latency) => {
+      _currentLatency = latency;
+      for (const cb of _latencyCbs) cb(latency);
+    };
+    _latencyMonitor.start(3000); // every 3 seconds
   });
 
   sock.addEventListener('message', e => _handleMessage(e.data));
@@ -178,8 +322,18 @@ function _open(serverUrl) {
     _connected = false;
     _socket    = null;
     _selfId    = null;
+
+    if (_latencyMonitor) {
+      _latencyMonitor.stop();
+      _latencyMonitor = null;
+    }
+
     console.info(`[network.js] Closed (code=${e.code} wasClean=${e.wasClean}).`);
-    if (!e.wasClean) _scheduleReconnect();
+    if (!e.wasClean) {
+      _scheduleReconnect();
+    } else {
+      _setStatus('offline');
+    }
   });
 
   sock.addEventListener('error', err => {
@@ -296,5 +450,37 @@ export function getSelfId() {
  */
 export function isConnected() {
   return _connected && _selfId !== null;
+}
+
+/**
+ * Returns the current WebSocket latency in milliseconds.
+ * @returns {number}
+ */
+export function getLatency() {
+  return _currentLatency;
+}
+
+/**
+ * Register a callback fired when the latency is updated.
+ * @param {(latency: number) => void} cb
+ */
+export function onLatencyUpdate(cb) {
+  _latencyCbs.push(cb);
+}
+
+/**
+ * Returns the current network status.
+ * @returns {string}
+ */
+export function getStatus() {
+  return _status;
+}
+
+/**
+ * Register a callback fired when the network status changes.
+ * @param {(status: string) => void} cb
+ */
+export function onStatusUpdate(cb) {
+  _statusCbs.push(cb);
 }
 
