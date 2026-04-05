@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
@@ -22,7 +21,7 @@ import (
 func getLocalIP() string {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not determine LAN IP, falling back to 127.0.0.1: %v\n", err)
+		ErrorLogger.Printf("Could not determine LAN IP, falling back to 127.0.0.1: %v\n", err)
 		return "127.0.0.1"
 	}
 	defer conn.Close()
@@ -32,40 +31,26 @@ func getLocalIP() string {
 
 // ── Entry point ───────────────────────────────────────────────────
 
-// Run is called by the root dispatcher with os.Args[2:].
-func Run(args []string) {
-	cli := parseArgs(args)
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to get working directory:", err)
-		os.Exit(1)
-	}
-
-	publicDir := filepath.Join(cwd, "public")
-	if cli.publicDir != "" {
-		publicDir = filepath.Join(cwd, cli.publicDir)
-	}
-
+// Serve starts the file server and blocks until the context is cancelled.
+func Serve(ctx context.Context, publicDir string, force bool) error {
 	results := performStartupCheckup(publicDir)
 	allPassed := printCheckupSummary(results)
 
 	if !allPassed {
-		if cli.force {
-			fmt.Println("⚠️  Errors detected but --force flag provided. Starting server anyway...")
-			fmt.Println("")
+		if force {
+			Logger.Println("⚠️  Errors detected but --force flag provided. Starting server anyway...")
+			Logger.Println("")
 		} else {
-			fmt.Fprintln(os.Stderr, "🛑 Server not started due to checkup failures.")
-			fmt.Fprintln(os.Stderr, "   Use --force or -f to start anyway.")
-			fmt.Fprintln(os.Stderr, "")
-			os.Exit(1)
+			return fmt.Errorf("checkup failures detected (use --force to override)")
 		}
 	} else {
-		fmt.Println("✅ All checks passed. Starting server...")
-		fmt.Println("")
+		Logger.Println("✅ All checks passed. Starting server...")
+		Logger.Println("")
 	}
 
 	gin.SetMode(gin.ReleaseMode)
+	gin.DefaultWriter = Logger.Writer()
+	gin.DefaultErrorWriter = ErrorLogger.Writer()
 	r := gin.New()
 
 	r.Use(LoggingMiddleware())
@@ -83,41 +68,46 @@ func Run(args []string) {
 		Handler: r,
 	}
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
 	go func() {
-		sig := <-quit
-		fmt.Printf("\nReceived %s. Shutting down gracefully...\n", sig)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		<-ctx.Done()
+		Logger.Println("Shutting down file server...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-
-		if err := srv.Shutdown(ctx); err != nil {
-			fmt.Fprintln(os.Stderr, "Forcing shutdown after timeout.")
-			os.Exit(1)
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			ErrorLogger.Printf("File server shutdown error: %v\n", err)
 		}
-		fmt.Println("Server closed.")
-		os.Exit(0)
 	}()
 
 	ip := getLocalIP()
-	fmt.Printf("Serving locally: http://localhost:%d/\n", defaultPort)
-	fmt.Printf("Serving on LAN:  http://%s:%d/\n", ip, defaultPort)
-	fmt.Printf("Web root: %s\n", publicDir)
-	if cli.force {
-		fmt.Println("⚠️  Server started with --force flag (errors ignored)")
-	}
+	Logger.Printf("File Server: http://localhost:%d/ (LAN: http://%s:%d/)\n", defaultPort, ip, defaultPort)
+	Logger.Printf("Web Root: %s\n", publicDir)
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		switch {
-		case strings.Contains(err.Error(), "address already in use"):
-			fmt.Fprintf(os.Stderr, "Port %d is already in use.\n", defaultPort)
-		case strings.Contains(err.Error(), "permission denied"):
-			fmt.Fprintf(os.Stderr, "Permission denied to bind to port %d.\n", defaultPort)
-		default:
-			fmt.Fprintln(os.Stderr, "Server error:", err)
-		}
+		return fmt.Errorf("file server error: %w", err)
+	}
+	return nil
+}
+
+// Run is the entry point for the "serve" command.
+func Run(args []string) {
+	cli := parseArgs(args)
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Failed to get working directory:", err)
+		os.Exit(1)
+	}
+
+	publicDir := filepath.Join(cwd, "public")
+	if cli.publicDir != "" {
+		publicDir = filepath.Join(cwd, cli.publicDir)
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	if err := Serve(ctx, publicDir, cli.force); err != nil {
+		ErrorLogger.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 }

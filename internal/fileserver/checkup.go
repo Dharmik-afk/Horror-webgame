@@ -92,9 +92,9 @@ func checkMimeType() checkupResult {
 // ── Runner ────────────────────────────────────────────────────────
 
 func performStartupCheckup(publicDir string) []checkupResult {
-	fmt.Println("")
-	fmt.Println("🔍 Running startup checkup...")
-	fmt.Println("")
+	Logger.Println("")
+	Logger.Println("🔍 Running startup checkup...")
+	Logger.Println("")
 
 	type namedCheck struct {
 		label string
@@ -109,23 +109,23 @@ func performStartupCheckup(publicDir string) []checkupResult {
 
 	results := make([]checkupResult, 0, len(checks))
 	for i, ch := range checks {
-		fmt.Printf("  [%d/%d] %s...\n", i+1, len(checks), ch.label)
+		Logger.Printf("  [%d/%d] %s...\n", i+1, len(checks), ch.label)
 		r := ch.fn()
 		results = append(results, r)
 		if r.success {
-			fmt.Println("  ✅ OK")
+			Logger.Println("  ✅ OK")
 		} else {
-			fmt.Printf("  ❌ FAILED: %s\n", r.message)
+			Logger.Printf("  ❌ FAILED: %s\n", r.message)
 		}
-		fmt.Println()
+		Logger.Println("")
 	}
 	return results
 }
 
 func printCheckupSummary(results []checkupResult) bool {
-	fmt.Println("─────────────────────────────────────")
-	fmt.Println("📋 STARTUP CHECKUP SUMMARY")
-	fmt.Println("─────────────────────────────────────")
+	Logger.Println("─────────────────────────────────────")
+	Logger.Println("📋 STARTUP CHECKUP SUMMARY")
+	Logger.Println("─────────────────────────────────────")
 
 	passed, failed := 0, 0
 	var failedResults []checkupResult
@@ -137,20 +137,20 @@ func printCheckupSummary(results []checkupResult) bool {
 			failedResults = append(failedResults, r)
 		}
 	}
-	fmt.Printf("  Passed: %d\n  Failed: %d\n", passed, failed)
+	Logger.Printf("  Passed: %d\n  Failed: %d\n", passed, failed)
 
 	if failed > 0 {
-		fmt.Println("")
-		fmt.Println("❌ Errors found:")
-		fmt.Println("")
+		Logger.Println("")
+		Logger.Println("❌ Errors found:")
+		Logger.Println("")
 		for i, r := range failedResults {
-			fmt.Printf("  %d. %s\n", i+1, r.message)
+			Logger.Printf("  %d. %s\n", i+1, r.message)
 			if r.suggestion != "" {
-				fmt.Printf("     Suggestion: %s\n", r.suggestion)
+				Logger.Printf("     Suggestion: %s\n", r.suggestion)
 			}
 		}
 	}
-	fmt.Println("─────────────────────────────────────")
-	fmt.Println("")
+	Logger.Println("─────────────────────────────────────")
+	Logger.Println("")
 	return failed == 0
 }

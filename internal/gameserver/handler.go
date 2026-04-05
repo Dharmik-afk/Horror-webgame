@@ -2,9 +2,7 @@ package gameserver
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -23,7 +21,7 @@ func writerLoop(c *wsClient) {
 	for data := range c.send {
 		c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 		if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			fmt.Printf("[ws] write error for %s: %v\n", c.id, err)
+			Logger.Printf("[ws] write error for %s: %v\n", c.id, err)
 			return
 		}
 	}
@@ -35,7 +33,7 @@ func readerLoop(c *wsClient, reg *Registry) {
 	defer func() {
 		close(c.send)
 		reg.remove(c.id)
-		fmt.Printf("[disconnect] id=%-16s  total=%d\n", c.id, reg.count())
+		Logger.Printf("[disconnect] id=%-16s  total=%d\n", c.id, reg.count())
 		reg.broadcast(leaveMsg{Type: "leave", ID: c.id})
 	}()
 
@@ -53,7 +51,7 @@ func readerLoop(c *wsClient, reg *Registry) {
 				websocket.CloseGoingAway,
 				websocket.CloseNormalClosure,
 			) {
-				fmt.Printf("[ws] read error for %s: %v\n", c.id, err)
+				Logger.Printf("[ws] read error for %s: %v\n", c.id, err)
 			}
 			return
 		}
@@ -67,7 +65,7 @@ func readerLoop(c *wsClient, reg *Registry) {
 		state := PlayerState{X: msg.X, Y: msg.Y, Angle: msg.Angle}
 		reg.setState(c.id, state)
 
-		fmt.Printf("[move]       id=%-16s  x=%7.3f  y=%7.3f  angle=%6.4f vx=%7.3f vy=%7.3f\n",
+		Logger.Printf("[move]       id=%-16s  x=%7.3f  y=%7.3f  angle=%6.4f vx=%7.3f vy=%7.3f\n",
 			c.id, msg.X, msg.Y, msg.Angle, msg.Vx, msg.Vy)
 
 		snap := reg.snapshot()
@@ -101,7 +99,7 @@ func WSHandler(reg *Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "[ws] upgrade error:", err)
+			ErrorLogger.Printf("[ws] upgrade error: %v\n", err)
 			return
 		}
 
@@ -124,7 +122,7 @@ func WSHandler(reg *Registry) http.HandlerFunc {
 		}
 
 		reg.add(c)
-		fmt.Printf("[connect]    id=%-16s  (cookie) total=%d\n", c.id, reg.count())
+		Logger.Printf("[connect]    id=%-16s  (cookie) total=%d\n", c.id, reg.count())
 
 		reg.sendTo(c.id, initMsg{
 			Type:    "init",

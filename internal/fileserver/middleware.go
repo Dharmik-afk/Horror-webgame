@@ -1,7 +1,6 @@
 package fileserver
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -35,7 +34,7 @@ func LoggingMiddleware() gin.HandlerFunc {
 			color = red
 		}
 
-		fmt.Printf("%s - %s %s %s %s%d%s %dms\n",
+		Logger.Printf("%s - %s %s %s %s%d%s %dms\n",
 			c.ClientIP(),
 			time.Now().UTC().Format(time.RFC3339),
 			c.Request.Method,

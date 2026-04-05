@@ -14,15 +14,17 @@ All other HTTP methods return `405 Method Not Allowed` with an `Allow: GET, HEAD
 ## CLI Usage
 
 ```
+raycaster dev
 raycaster serve [dir] [-f|--force]
 ```
 
+- **`dev`** — starts the file server and game server simultaneously with prefixed logs.
 - **`dir`** (optional) — path to the public directory, relative to CWD. Defaults to `public/`.
 - **`-f` / `--force`** — start the server even if startup health checks fail.
 
 ## Request Processing Pipeline
 
-1. **Logging Middleware** (`middleware.go`) — records client IP, timestamp, method, path, colour-coded status, and response time in milliseconds.
+1. **Logging Middleware** (`middleware.go`) — records client IP, timestamp, method, path, colour-coded status, and response time in milliseconds via the package-level `Logger`.
 2. **Method Guard** — rejects non-GET/HEAD with 405.
 3. **URL Parsing** (`parseRequestPath`) — strips query strings, decodes percent-encoding, enforces a 2048-character URI limit.
 4. **Path Resolution** (`safeResolve`) — joins the request path to the public root, runs `filepath.Clean()`, and validates the result stays within the public directory to prevent path traversal. Control characters (`\x00–\x1f`) are rejected outright.

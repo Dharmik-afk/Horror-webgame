@@ -64,7 +64,7 @@ func mapFSError(err error, filePath string) *httpError {
 	if strings.Contains(err.Error(), "name too long") {
 		return errURITooLong()
 	}
-	fmt.Fprintf(os.Stderr, "FS Error for %s: %v\n", filePath, err)
+	ErrorLogger.Printf("FS Error for %s: %v\n", filePath, err)
 	return errInternalError("")
 }
 

@@ -209,18 +209,16 @@ export function connect(serverUrl) {
  * To keep a consistent connection to the gameserver, it needs to send an idle update.
  * Without consistent updates, the server connection will be lost and the player will be kicked out.
  */
- function sendIdel(){
+ function sendIdle(){
   if (!_connected || !_socket) return;
-  _socket.send(JSON.stringify({type: 'Idel'}))
+  _socket.send(JSON.stringify({type: 'idle'}))
 }
 /**
  * Send a position update to the server.  Called every frame by
  * main.js after player.update().  Internally throttled to 20 Hz
  * and dead-zoned — no extra logic needed at the call site.
  *
- * @param {number} x
- * @param {number} y
- * @param {number} angle  radians
+ * @param {Player} player
  */
 export function sendMove(player) {
   if (!_connected || !_socket) return;
@@ -238,7 +236,7 @@ export function sendMove(player) {
     Math.abs(x     - _lastSentX)     < POSITION_EPSILON &&
     Math.abs(y     - _lastSentY)     < POSITION_EPSILON &&
     Math.abs(angle - _lastSentAngle) < ANGLE_EPSILON
-  ) {sendIdel(); return}
+  ) {sendIdle(); return}
 
   _lastSendTime  = now;
   _lastSentX     = x;

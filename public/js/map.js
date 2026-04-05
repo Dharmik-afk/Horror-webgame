@@ -462,22 +462,12 @@ export async function loadLevel(url) {
   return data;
 }
 
-// ── castCenterRay(player) ─────────────────────────────────────────
-// Casts a single ray from the player along their exact facing direction
-// and returns the closest wall segment it hits.
-//
-// Uses the same Cramér's-rule intersection as the GPU fragment shader
-// so results match what the player sees on screen.  Called once per
-// frame by main.js only when the debug overlay is active (_debugMode ≥ 1).
-//
-// Return value:
-//   null  — no hit (open space / gap in geometry)
-//   {
-//     segIndex : number   — index into WALLS[]
-//     dist     : number   — perpendicular distance in tile-space
-//     u        : number   — parametric hit point along segment [0, 1]
-//     seg      : object   — the matching WALLS[segIndex] object
-//   }
+/**
+ * Casts a single ray from the player along their exact facing direction
+ * and returns the closest wall segment it hits.
+ * @param {Player} player
+ * @returns {object|null} hit data { segIndex, dist, u, seg }
+ */
 export function castCenterRay(player) {
   const rx = player.sinA;
   const ry = -player.cosA;

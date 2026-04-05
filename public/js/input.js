@@ -136,7 +136,10 @@ let mouseDown = false;      // fallback drag mode (when pointer lock not availab
 let mouseLastX = 0;
 let pointerLocked = false;
 
-// Pointer lock change handler
+/**
+ * Pointer lock change handler.
+ * @param {Player} player
+ */
 function handlePointerLockChange(player) {
   pointerLocked = (document.pointerLockElement === c);
   if (pointerLocked) {
@@ -145,7 +148,10 @@ function handlePointerLockChange(player) {
   }
 }
 
-// Setup mouse / pointer handlers for the canvas
+/**
+ * Setup mouse / pointer handlers for the canvas.
+ * @param {Player} player
+ */
 function setupCanvasPointer(player) {
   // On pointerlock-supported browsers we request lock on user gesture (mousedown).
   // Fallback: if requestPointerLock isn't present or is denied, enable drag fallback.
@@ -210,7 +216,10 @@ function setupCanvasPointer(player) {
   c.addEventListener('contextmenu', e => e.preventDefault());
 }
 
-// ── Public init(player) ──────────────────────────────────────────
+/**
+ * Initialize input handlers.
+ * @param {Player} player
+ */
 export function init(player) {
   // Pre-cache .key elements into KEY_ELS (data-key attribute)
   document.querySelectorAll('.key').forEach(el => {

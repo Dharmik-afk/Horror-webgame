@@ -39,4 +39,4 @@ Inbound connections are pushed directly on reception. Fast outgoing connections 
 ### Output Limitations
 - **Throttling Interval**: Emits locked effectively at `20Hz` (`50ms`).
 - **Precision Epsilon Constraints**: The player state needs to differ meaningfully (`POSITION_EPSILON` or `ANGLE_EPSILON`) for an update to warrant being queued.
-- **Keep-Alive (Idle)**: Should the engine rest on unchanged coordinates repeatedly due to epsilon dead-zones, `sendIdel()` pushes a `{ "type": "Idel" }` ping, ensuring connection keep-alive timeout limits are not rejected.
+- **Keep-Alive (Idle)**: Should the engine rest on unchanged coordinates repeatedly due to epsilon dead-zones, `sendIdle()` pushes a `{ "type": "idle" }` ping, ensuring connection keep-alive timeout limits are not rejected.

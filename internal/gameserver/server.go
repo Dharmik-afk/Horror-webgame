@@ -12,9 +12,8 @@ import (
 
 const port = 9000
 
-// Run is called by the root dispatcher with os.Args[2:].
-// Currently takes no meaningful arguments — reserved for future flags.
-func Run(_ []string) {
+// Serve starts the game server and blocks until the context is cancelled.
+func Serve(ctx context.Context) error {
 	reg := NewRegistry()
 
 	mux := http.NewServeMux()
@@ -28,10 +27,6 @@ func Run(_ []string) {
 		fmt.Fprintf(w, `{"status":"ok","players":%d}`, reg.count())
 	})
 
-	// corsHandler wraps the mux to echo CORS headers for preflight
-	// requests.  Required because browsers on :8000 treat :9000 as a
-	// different origin and will send an OPTIONS preflight before the
-	// WebSocket upgrade if custom headers are present.
 	corsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if origin := r.Header.Get("Origin"); origin != "" {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
@@ -51,27 +46,31 @@ func Run(_ []string) {
 		Handler: corsHandler,
 	}
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
 	go func() {
-		sig := <-quit
-		fmt.Printf("\nReceived %s. Shutting down...\n", sig)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		<-ctx.Done()
+		Logger.Println("Shutting down game server...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := srv.Shutdown(ctx); err != nil {
-			fmt.Fprintln(os.Stderr, "Forced shutdown:", err)
-			os.Exit(1)
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			ErrorLogger.Printf("Game server shutdown error: %v\n", err)
 		}
-		fmt.Println("Game server stopped.")
-		os.Exit(0)
 	}()
 
-	fmt.Printf("Game server  :  ws://localhost:%d/ws\n", port)
-	fmt.Printf("Health check :  http://localhost:%d/health\n", port)
+	Logger.Printf("Game Server: ws://localhost:%d/ws (Health: http://localhost:%d/health)\n", port, port)
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		fmt.Fprintln(os.Stderr, "ListenAndServe:", err)
+		return fmt.Errorf("game server error: %w", err)
+	}
+	return nil
+}
+
+// Run is the entry point for the "game" command.
+func Run(_ []string) {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	if err := Serve(ctx); err != nil {
+		ErrorLogger.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 }

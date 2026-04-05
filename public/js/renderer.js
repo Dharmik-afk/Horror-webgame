@@ -655,20 +655,12 @@ export function resizeViewport(w, h) {
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 
-// ── castRays(player, measure) ─────────────────────────────────────
-//
-//  measure (bool, default false)
-//    When false: bare draw call, zero timing overhead.
-//                Returns null.
-//    When true and Path A: GPU query brackets the draw call.
-//                Returns null (result arrives next frame via poll).
-//    When true and Path B: gl.finish() stalls after the draw call.
-//                Returns elapsed milliseconds.
-//
-//  The measure flag is driven by (_debugMode >= 2) in main.js, so
-//  the gl.finish() stall only occurs when the verbose perf section
-//  is open — never during normal gameplay.
-//
+/**
+ * Cast rays for the environment pass.
+ * @param {Player} player
+ * @param {boolean} measure - When true, stalls for timing (debug only)
+ * @returns {number|null} elapsed ms if measuring, else null
+ */
 export function castRays(player, measure = false) {
   // Explicit clear before every draw.
   // With preserveDrawingBuffer:false (default) the spec says the

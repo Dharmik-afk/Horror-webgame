@@ -15,22 +15,25 @@ internal/
 │   ├── handler.go           Path resolution, range requests, cache headers, file serving
 │   ├── middleware.go        Gin request logging middleware
 │   ├── checkup.go           Startup health checks (directory, index.html, MIME, path sim)
-│   └── server.go            Run() entry point, Gin router setup, graceful shutdown
+│   ├── logger.go            Package-level loggers (Logger, ErrorLogger)
+│   └── server.go            Serve() and Run() entry points, Gin router setup, graceful shutdown
 └── gameserver/              WebSocket game server (gorilla/websocket + stdlib)
     ├── model.go             Wire protocol types (PlayerState, messages), ID generation
     ├── registry.go          Thread-safe client registry and state store
     ├── handler.go           WebSocket upgrader, per-client reader/writer goroutines
-    └── server.go            Run() entry point, HTTP mux, graceful shutdown
+    ├── logger.go            Package-level loggers (Logger, ErrorLogger)
+    └── server.go            Serve() and Run() entry points, HTTP mux, graceful shutdown
 ```
 
 ## CLI Dispatcher
 
 The `cmd/raycaster/main.go` entry point uses a simple `os.Args` switch to route subcommands:
 
+- **`raycaster dev`** — launches both servers simultaneously with interleaved, prefixed logs (recommended for local dev)
 - **`raycaster serve [dir] [-f]`** — launches the static file server on port 8000
 - **`raycaster game`** — launches the WebSocket game server on port 9000
 
-Both subcommands run independently and bind to separate ports. They can be started simultaneously in separate terminals for full local development.
+Both subcommands can run independently or together via the `dev` command. When running multiple services via `dev`, logs are prefixed with `[FILE]` or `[GAME]` to distinguish output.
 
 ## Design Principles
 

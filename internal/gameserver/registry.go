@@ -3,7 +3,6 @@ package gameserver
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -59,7 +58,7 @@ func (r *Registry) evict(id string) {
 		close(old.send)
 		delete(r.clients, id)
 		delete(r.states, id)
-		fmt.Printf("[evict]      id=%-16s  (stale connection replaced)\n", id)
+		Logger.Printf("[evict]      id=%-16s  (stale connection replaced)\n", id)
 	}
 }
 
@@ -82,7 +81,7 @@ func (r *Registry) snapshot() map[string]PlayerState {
 func (r *Registry) broadcast(msg any) {
 	data, err := json.Marshal(msg)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "[registry] marshal error:", err)
+		ErrorLogger.Printf("[registry] marshal error: %v\n", err)
 		return
 	}
 	r.mu.RLock()
@@ -99,7 +98,7 @@ func (r *Registry) broadcast(msg any) {
 func (r *Registry) sendTo(id string, msg any) {
 	data, err := json.Marshal(msg)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "[registry] marshal error:", err)
+		ErrorLogger.Printf("[registry] marshal error: %v\n", err)
 		return
 	}
 	r.mu.RLock()
@@ -111,7 +110,7 @@ func (r *Registry) sendTo(id string, msg any) {
 	select {
 	case c.send <- data:
 	default:
-		fmt.Printf("[registry] send buffer full for %s — skipping\n", id)
+		Logger.Printf("[registry] send buffer full for %s — skipping\n", id)
 	}
 }
 

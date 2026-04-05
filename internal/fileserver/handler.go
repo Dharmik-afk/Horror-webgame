@@ -187,11 +187,11 @@ func serveFileContents(c *gin.Context, filePath string, info os.FileInfo) {
 		c.Header("Content-Length", strconv.FormatInt(chunkSize, 10))
 		c.Status(http.StatusPartialContent)
 		if _, err = f.Seek(r.start, io.SeekStart); err != nil {
-			fmt.Fprintf(os.Stderr, "Seek error for %s: %v\n", filePath, err)
+			ErrorLogger.Printf("Seek error for %s: %v\n", filePath, err)
 			return
 		}
 		if _, err = io.CopyN(c.Writer, f, chunkSize); err != nil && err != io.EOF {
-			fmt.Fprintf(os.Stderr, "Stream error for %s: %v\n", filePath, err)
+			ErrorLogger.Printf("Stream error for %s: %v\n", filePath, err)
 		}
 		return
 	}
@@ -199,7 +199,7 @@ func serveFileContents(c *gin.Context, filePath string, info os.FileInfo) {
 	c.Header("Content-Length", strconv.FormatInt(fileSize, 10))
 	c.Status(http.StatusOK)
 	if _, err = io.Copy(c.Writer, f); err != nil {
-		fmt.Fprintf(os.Stderr, "Stream error for %s: %v\n", filePath, err)
+		ErrorLogger.Printf("Stream error for %s: %v\n", filePath, err)
 	}
 }
 

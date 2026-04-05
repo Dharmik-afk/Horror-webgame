@@ -12,10 +12,11 @@ The WebSocket game server lives in `internal/gameserver/` and provides real-time
 ## CLI Usage
 
 ```
+raycaster dev
 raycaster game
 ```
 
-No flags are currently supported. The port is hardcoded to `9000`.
+The `dev` command starts both servers with prefixed logs. The `game` command starts only the game server. The port is hardcoded to `9000`.
 
 ## Wire Protocol (JSON over WebSocket)
 
@@ -126,4 +127,4 @@ All registry mutations go through the mutex. Broadcasts iterate the client map u
 
 ## Graceful Shutdown
 
-On `SIGINT`/`SIGTERM`, the server calls `http.Server.Shutdown()` with a 10-second context deadline. This stops accepting new connections and waits for existing handlers to complete.
+On `SIGINT`/`SIGTERM`, the server calls `http.Server.Shutdown()` with a 10-second context deadline. This stops accepting new connections and waits for existing handlers to complete. Logging is handled via the package-level `Logger`, allowing for prefixing in `dev` mode.
